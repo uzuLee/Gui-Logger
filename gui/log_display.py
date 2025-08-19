@@ -848,7 +848,7 @@ class LogDisplay(tk.Frame):
                 messages_processed = True
                 
                 msg_text = data.get('message', '')
-                level_match = re.search(r"[(TRACE|DEBUG|INFO|WARNING|ERROR|FATAL|THINKING|DATA|AUDIT|SYSTEM|COMMENT|PROGRESS)]", msg_text, re.I)
+                level_match = re.search(r"\[(TRACE|DEBUG|INFO|WARNING|ERROR|FATAL|THINKING|DATA|AUDIT|SYSTEM|COMMENT|PROGRESS)\]", msg_text, re.I)
                 level = level_match.group(1).upper() if level_match else 'INFO'
 
                 if level == 'PROGRESS':
@@ -954,8 +954,7 @@ class LogDisplay(tk.Frame):
 
         try:
             self.all_logs, self.undo_stack, self.redo_stack = [], [], []
-            log_pattern = re.compile(r"[(TRACE|DEBUG|INFO|PROGRESS|WARNING|ERROR|FATAL|COMMENT|THINKING|DATA|AUDIT|SYSTEM)]")
-
+            log_pattern = re.compile(r"\[(TRACE|DEBUG|INFO|PROGRESS|WARNING|ERROR|FATAL|COMMENT|THINKING|DATA|AUDIT|SYSTEM)\]")
             with open(file_path, "r", encoding="utf-8") as f: lines = f.readlines()
 
             processed_lines = []
