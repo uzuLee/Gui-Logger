@@ -35,10 +35,9 @@ def _check_pause(pause_flag_path: Path):
             paused_message_logged = True
         time.sleep(1)
     
-    if paused_message_logged:
-        # 재개되었음을 로그로 남깁니다.
-        # Log that the process has resumed.
-        log('SYSTEM', "Process resumed.")
+    # GUI에서도 동일한 메시지를 보내므로 중복을 피하기 위해 이 부분은 주석 처리하거나 삭제합니다.
+    # if paused_message_logged:
+    #     log('SYSTEM', "Process resumed.")
 
 def log(level, message):
     """
@@ -96,16 +95,15 @@ log('INFO', 'Starting a long task with a spinner animation...')
 spinner_chars = ['|', '/', '-', '\\']
 for i in range(40):
     _check_pause(PAUSE_FLAG_PATH) # 애니메이션의 각 프레임 전에 일시정지 상태를 확인합니다. (Check for pause state before each frame of the animation.)
+    time.sleep(0.1) # 애니메이션이 보이도록 딜레이 추가
     char = spinner_chars[i % 4]
-    # [PROGRESS] 로그는 줄바꿈 없이 출력하여 한 줄에서 업데이트되도록 합니다.
-    # [PROGRESS] logs are printed without a newline to update on a single line.
     progress_msg = f"[{datetime.now().strftime('%H:%M:%S')}] [PROGRESS] Thinking... {char}"
-    print(progress_msg, end='\r')
+    
+    # GUI가 각 프레임을 별도의 라인으로 인식하고 처리하도록 줄바꿈 문자를 보내줍니다.
+    print(progress_msg, end='\n') 
     sys.stdout.flush()
 
-# 애니메이션 종료 후 줄바꿈을 추가하여 다음 로그가 새 줄에 출력되도록 합니다.
-# Add a newline after the animation to ensure the next log prints on a new line.
-print()
+# 애니메이션 종료 후 별도 줄바꿈이 필요 없어졌으므로 print() 제거
 log('INFO', 'Spinner task complete.')
 
 
@@ -115,9 +113,8 @@ for i in range(101):
     _check_pause(PAUSE_FLAG_PATH) # 진행률의 각 단계 전에 일시정지 상태를 확인합니다. (Check for pause state before each step of the progress.)
     time.sleep(0.02)
     bar = '█' * (i // 2) + '-' * (50 - (i // 2))
-    # 마지막(100%)을 제외하고는 캐리지 리턴(\r)을 사용하여 같은 줄에 덮어쓰도록 합니다.
-    # Use carriage return (\r) to overwrite the same line, except for the last one (100%).
-    end_char = '\r' if i < 100 else '\n'
+    # 여기도 마찬가지로 end_char를 항상 '\n'으로 설정하여 GUI가 각 단계를 수신하도록 합니다.
+    end_char = '\n'
     progress_msg = f"[{datetime.now().strftime('%H:%M:%S')}] [PROGRESS] Processing batch: |{bar}| {i:.1f}% Complete"
     print(progress_msg, end=end_char)
     sys.stdout.flush()
