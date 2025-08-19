@@ -1,141 +1,96 @@
------
+# Log Viewer README
 
-# Log Viewer
+## 소개 (Introduction)
+이 문서는 로그 뷰어 GUI 애플리케이션에 대한 기술적인 내용을 담고 있습니다. 애플리케이션은 `log_display.py`를 중심으로 한 메인 뷰어와, 로그 수정을 위한 `editor_window.py`, 그리고 전체 UI의 디자인을 관리하는 `theme.py`로 구성되어 있습니다.
 
-## 개요 (Overview)
+This document provides technical details for the Log Viewer GUI application. The application consists of the main viewer centered around `log_display.py`, the `editor_window.py` for editing logs, and `theme.py` for managing the overall UI design.
 
-**🇰🇷 (Korean)**
+## 주요 구성 요소 (Main Components)
+- **`log_display.py`**: 메인 로그 뷰어 창입니다. 대상 스크립트를 실행하고 실시간으로 로그를 표시하며, 기존 로그 파일을 열어보고 편집하는 핵심 기능을 담당합니다.
+- **`editor_window.py`**: 로그 항목을 새로 추가하거나 기존 항목을 수정하기 위한 별도의 에디터 창입니다.
+- **`theme.py`**: 애플리케이션의 모든 색상, 폰트, 위젯 스타일을 중앙에서 관리하여 일관된 디자인을 유지합니다.
 
-Log Viewer는 Python의 Tkinter로 제작된 GUI 애플리케이션으로, 스크립트나 프로세스에서 발생하는 로그를 실시간으로 모니터링하고, 기존 로그 파일을 열어 편집할 수 있는 강력한 기능을 제공합니다. 사용자는 로그를 레벨별로 필터링하고, 실행 중인 프로세스를 일시 중지하여 로그를 추가, 수정, 삭제할 수 있으며, 이러한 모든 편집 내용은 실행 재개 시 파일에 저장할 수 있습니다.
+---
+- **`log_display.py`**: The main log viewer window. It handles the core functionalities of running a target script, displaying its logs in real-time, and opening/editing existing log files.
+- **`editor_window.py`**: A separate editor window for adding new log entries or modifying existing ones.
+- **`theme.py`**: Centrally manages all colors, fonts, and widget styles for the application to maintain a consistent design.
 
------
+## 주요 기능 상세 (Detailed Features)
 
-**🇬🇧 (English)**
+### 1. 실행 상태 관리 (Process State Management)
+애플리케이션은 다음과 같은 주요 상태를 가집니다. 각 상태에 따라 사용 가능한 기능과 UI가 동적으로 변경됩니다.
+The application has several main states. The available features and UI change dynamically based on the current state.
 
-Log Viewer is a GUI application built with Python's Tkinter, providing robust functionality for real-time monitoring of logs from scripts or processes, as well as opening and editing existing log files. Users can filter logs by level, pause a running process to add, modify, or delete log entries, and save all these changes back to the file upon resuming.
+- **Idle (대기 상태):**
+  - 스크립트 실행 전 또는 로그 파일이 열리기 전의 기본 상태입니다.
+  - 대부분의 컨트롤(Pause, Save 등)이 비활성화됩니다.
+  - `Run` 버튼과 `Open Log File` 버튼만 활성화됩니다.
+  - **(EN)** The default state before running a script or opening a log file. Most controls (Pause, Save, etc.) are disabled. Only the `Run` and `Open Log File` buttons are active.
 
-## 주요 기능 (Key Features)
+- **Running (실행 중):**
+  - `Run` 버튼을 눌러 대상 스크립트(`start_glen.py`)가 실행 중인 상태입니다.
+  - 로그가 실시간으로 화면에 표시됩니다.
+  - `Run` 버튼은 `Kill` 버튼으로 변경되며, 클릭 시 실행 중인 프로세스를 종료할 수 있습니다.
+  - `Pause` 버튼이 활성화됩니다.
+  - **로그 편집 기능은 비활성화됩니다.**
+  - **(EN)** The state when the target script (`start_glen.py`) is running after pressing the `Run` button. Logs are displayed in real-time. The `Run` button changes to a `Kill` button, which can terminate the running process. The `Pause` button becomes active. **Log editing features are disabled.**
 
-**🇰🇷 (Korean)**
+- **Paused (일시 정지):**
+  - `Pause` 버튼을 눌러 스크립트의 동작이 일시 정지된 상태입니다. (내부적으로 `pause.flag` 파일을 생성하여 신호를 보냅니다.)
+  - **로그 편집 기능(주석 추가, 라인 수정 등)이 활성화됩니다.**
+  - **Undo/Redo 스택에 변경 사항이 없을 경우:** 버튼은 `Resume`으로 표시되며, `SUCCESS_COLOR`(녹색 계열)를 가집니다. 클릭 시 `pause_flag.txt`를 삭제하여 프로세스를 재개합니다.
+  - **Undo/Redo 스택에 변경 사항이 있을 경우:** 버튼은 `Save`로 변경되며, `PRIMARY_COLOR`(파란색 계열)를 가집니다. 클릭 시 변경 사항을 현재 로그 파일에 저장합니다.
+  - **(EN)** The state when the script is paused by pressing the `Pause` button (which signals the script by creating a `pause_flag.txt` file). **Log editing features (adding comments, modifying lines) become active.**
+    - **If there are no changes in the undo/redo stack:** The button displays `Resume` and has the `SUCCESS_COLOR` (green). Clicking it resumes the process by deleting `pause.flag`.
+    - **If there are changes in the undo/redo stack:** The button changes to `Save` and has the `PRIMARY_COLOR` (blue). Clicking it saves the changes to the current log file.
 
-  * **실시간 로그 모니터링**: 외부 스크립트(`think_core` 프로세스)의 출력을 실시간으로 표시합니다.
-  * **로그 파일 관리**: 기존 `.log` 파일을 열고 내용을 확인하며, 변경 사항을 저장할 수 있습니다.
-  * **동적 필터링**: TRACE, DEBUG, INFO, WARNING, ERROR, FATAL 등 로그 레벨별로 표시 여부를 동적으로 제어할 수 있습니다.
-  * **프로세스 제어**: `Run`, `Kill`, `Pause`, `Resume` 기능을 통해 모니터링 중인 프로세스를 제어합니다.
-  * **로그 편집 기능**:
-      * **추가**: `COMMENT` 또는 다른 레벨의 로그를 원하는 위치에 삽입할 수 있습니다.
-      * **수정**: 기존 로그의 내용을 변경할 수 있습니다.
-      * **삭제**: 특정 로그 라인을 삭제 대상으로 표시하고 저장 시 실제 파일에서 제거합니다.
-  * **실행 취소/다시 실행 (Undo/Redo)**: `Ctrl+Z` 및 `Ctrl+Y` 단축키를 통해 모든 편집 작업을 취소하거나 다시 실행할 수 있습니다.
-  * **커맨드 입력**: 입력창에 `/add`, `/edit`, `/delete`와 같은 명령어를 입력하여 로그를 관리할 수 있습니다.
-  * **자동 완성**: `/add` 명령어 입력 후 스페이스바를 누르면 로그 레벨(TRACE, DEBUG 등) 자동 완성 팝업이 표시됩니다.
-  * **하이퍼링크 지원**: 로그에 포함된 웹 URL이나 로컬 파일 경로(`@C:/path/to/file`)를 클릭하여 열 수 있습니다.
-  * **팝업 에디터**: `Ctrl+E` 단축키로 별도의 편집기 창을 열어 보다 편리하게 로그를 수정하거나 추가할 수 있습니다.
-  * **UI 커스터마이징**: 로그 뷰어의 폰트 크기를 동적으로 조절할 수 있습니다.
-  * **세련된 다크 테마**: 가독성을 높이고 현대적인 UI를 제공하는 어두운 테마를 적용했습니다.
+- **Viewing (로그 파일 보기):**
+  - `Open Log File` 버튼을 통해 기존 `.log` 파일을 열람하는 상태입니다.
+  - 스크립트는 실행되지 않으며, 파일의 내용을 정적으로 보여줍니다.
+  - **로그 편집 기능이 활성화됩니다.**
+  - 변경 사항이 발생하면 `Save` 버튼이 활성화되어 파일에 덮어쓸 수 있습니다.
+  - `Run` 버튼은 `Exit` 버튼으로 변경되며, 클릭 시 뷰어 모드를 종료하고 초기 대기 상태로 돌아갑니다.
+  - **(EN)** The state when viewing an existing `.log` file via the `Open Log File` button. The script is not running; the view is static. **Log editing features are active.** The `Save` button becomes active if any changes are made. The `Run` button changes to `Exit`, which closes the view mode and returns to the initial Idle state.
 
------
+### 2. 로그 필터링 (Log Filtering)
+- `Filters (x/y) ▼` 버튼을 클릭하여 로그 필터링 드롭다운 메뉴를 열 수 있습니다.
+- `TRACE`, `DEBUG`, `INFO` 등 특정 로그 레벨을 선택/해제하여 로그 뷰에서 보거나 숨길 수 있습니다.
+- 드롭다운이 열려있을 때 버튼의 화살표는 위(`▲`)를, 닫혀있을 때는 아래(`▼`)를 가리킵니다.
+- 드롭다운 메뉴 외부의 영역을 클릭하면 메뉴가 자동으로 닫힙니다.
+- **(EN)** Clicking the `Filters (x/y) ▼` button opens the log filtering dropdown menu. You can check/uncheck specific log levels (e.g., `TRACE`, `DEBUG`, `INFO`) to show or hide them from the log view. The arrow on the button points up (`▲`) when the dropdown is open and down (`▼`) when closed. Clicking anywhere outside the dropdown closes it automatically.
 
-**🇬🇧 (English)**
+### 3. 로그 편집 및 에디터 창 (Log Editing & Editor Window)
+- **조건 (Condition):** `Paused` 또는 `Viewing` 상태에서만 활성화됩니다.
+- **주석 추가 (Add Comment):** 로그 라인을 선택하지 않고 하단의 입력창에 텍스트를 입력하고 전송하면, 해당 내용이 `[COMMENT]` 로그로 추가됩니다. 로그 라인을 선택했다면 그 바로 아래에 추가됩니다.
+- **에디터 창 열기 (Open Editor Window):**
+  - 수정하고 싶은 로그 라인을 클릭하여 선택한 후, `Ctrl+E` 단축키를 누르면 에디터 창이 열립니다.
+  - 에디터 창에서는 선택된 로그의 내용과 레벨을 자유롭게 수정할 수 있습니다.
+- **에디터 창 모드 전환 (Editor Window Mode Toggle):**
+  - 에디터 창 우측 상단에는 현재 모드를 나타내는 뱃지(`ADD`/`EDIT`)와 `Switch` 버튼이 있습니다.
+  - **EDIT 모드:** 선택된 로그를 수정하는 모드입니다. 뱃지는 `MODIFIED` 색상(파란색 계열)으로 표시됩니다.
+  - **ADD 모드:** `Switch` 버튼을 눌러 전환할 수 있으며, 새로운 로그를 작성하는 모드입니다. 뱃지는 `ADDED` 색상(성공색 계열)으로 표시됩니다.
+  - `Apply` 버튼을 누르면 변경 사항이 메인 로그 뷰어에 반영되고 창이 닫힙니다.
+- **(EN)** **Condition:** Active only in `Paused` or `Viewing` states.
+  - **Add Comment:** By typing in the bottom input field without a line selected, a `[COMMENT]` log is added to the end. If a line is selected, the comment is inserted below it.
+  - **Open Editor Window:** Select a log line by clicking it and press `Ctrl+E` to open the editor window. In the editor, you can freely modify the content and log level of the selected entry.
+  - **Editor Window Mode Toggle:** The top-right of the editor window features a mode badge (`ADD`/`EDIT`) and a `Switch` button.
+    - **EDIT Mode:** For modifying the selected log. The badge is colored with `LOG_LEVEL_COLORS['MODIFIED']`.
+    - **ADD Mode:** Accessible via the `Switch` button, for creating a new log entry. The badge is colored with `LOG_LEVEL_COLORS['ADDED']`.
+    - The `Apply` button saves the changes to the main log viewer and closes the window.
 
-  * **Real-Time Log Monitoring**: Displays output from an external script (the `think_core` process) in real-time.
-  * **Log File Management**: Allows opening existing `.log` files, viewing their content, and saving changes.
-  * **Dynamic Filtering**: Dynamically control the visibility of logs based on their level, such as TRACE, DEBUG, INFO, WARNING, ERROR, and FATAL.
-  * **Process Control**: Control the monitored process with `Run`, `Kill`, `Pause`, and `Resume` functionalities.
-  * **Log Editing Capabilities**:
-      * **Add**: Insert new logs, such as `COMMENT` or other levels, at any position.
-      * **Modify**: Change the content of existing log entries.
-      * **Delete**: Mark specific log lines for deletion, which are removed from the file upon saving.
-  * **Undo/Redo**: Undo or redo any editing action using the `Ctrl+Z` and `Ctrl+Y` shortcuts.
-  * **Command Input**: Manage logs by typing commands like `/add`, `/edit`, and `/delete` into the input field.
-  * **Autocomplete**: An autocomplete popup for log levels (TRACE, DEBUG, etc.) appears after typing `/add` followed by a space.
-  * **Hyperlink Support**: Clickable web URLs and local file paths (e.g., `@C:/path/to/file`) within the logs can be opened directly.
-  * **Popup Editor**: Open a separate editor window with the `Ctrl+E` shortcut for more convenient log editing and creation.
-  * **UI Customization**: Dynamically adjust the font size of the log viewer.
-  * **Sleek Dark Theme**: Features a modern dark theme for enhanced readability and user experience.
+### 4. 링크 및 폰트 제어 (Link & Font Control)
+- **링크화 (Hyperlinking):**
+  - 로그 내용 중 웹 URL (`http://...`, `https://...`)과 로컬 파일 경로 (`@C:\...`, `@E:\...` 등, 슬래시와 역슬래시, 따옴표 모두 감지 가능)를 자동으로 감지하여 밑줄과 함께 링크로 만듭니다.
+  - `Ctrl+Click`으로 해당 URL을 웹 브라우저에서 열거나 파일을 실행할 수 있습니다.
+  - 파일 경로에 `Shift+Click`을 하면 해당 파일이 위치한 폴더를 탐색기에서 엽니다.
+- **폰트 크기 (Font Size):**
+  - 메인 뷰어의 `A+` / `A-` 버튼으로 로그 텍스트의 크기를 조절할 수 있습니다.
+- **(EN)** **Hyperlinking:** Web URLs (`http://...`, `https://...`) and local file paths (e.g., `@C:\...`, slashes and reverse slashes, all wrapped in quotation marks can be detected) within logs are automatically detected and underlined.
+  - `Ctrl+Click` opens the URL in a web browser or executes the file.
+  - `Shift+Click` on a file path opens its containing folder in the file explorer.
+  - **Font Size:** The `A+` / `A-` buttons on the main viewer control the font size of the log text area.
 
-## 파일 구조 (File Structure)
-
-**🇰🇷 (Korean)**
-
-  * `main.py`: 애플리케이션을 시작하는 메인 진입점입니다.
-  * `log_display.py`: GUI의 메인 클래스. UI 요소, 이벤트 처리, 로그 관리 로직 등 핵심 기능을 모두 포함합니다.
-  * `editor_window.py`: 로그를 추가하거나 수정할 때 나타나는 별도의 팝업 에디터 창을 정의합니다.
-  * `run_think_core.py`: GUI가 모니터링할 로그를 생성하는 테스트용 서브프로세스 스크립트입니다.
-  * `config.py`: 로그 디렉토리, 플래그 파일 경로 등 애플리케이션에서 사용되는 주요 경로와 상수를 정의합니다.
-  * `theme.py`: UI의 색상, 폰트, 위젯 스타일 등 시각적 테마를 정의합니다.
-  * `utils.py`: 애플리케이션 자체의 로깅 설정을 구성하는 유틸리티 함수를 포함합니다.
-
------
-
-**🇬🇧 (English)**
-
-  * `main.py`: The main entry point that launches the application.
-  * `log_display.py`: The main GUI class. It contains all core functionalities, including UI elements, event handling, and log management logic.
-  * `editor_window.py`: Defines the separate pop-up editor window that appears when adding or modifying a log entry.
-  * `run_think_core.py`: A test surrogate script that acts as the subprocess, generating logs for the GUI to monitor.
-  * `config.py`: Defines key paths and constants used throughout the application, such as the log directory and flag file paths.
-  * `theme.py`: Defines the visual theme of the UI, including colors, fonts, and widget styles.
-  * `utils.py`: Contains utility functions, such as configuring the logging setup for the application itself.
-
-## 사용법 (How to Use)
-
-**🇰🇷 (Korean)**
-
-1.  **실행**: 프로젝트의 루트 디렉토리에서 아래 명령어를 실행하여 애플리케이션을 시작합니다. Python의 모듈(`-m`) 방식으로 실행하는 것을 권장하며, 이는 모든 상대 경로 임포트가 올바르게 동작하도록 보장합니다.
-
-    ```bash
-    python -m src.utils.logging_gui.main
-    ```
-
-2.  **실시간 모니터링**:
-
-      * **Run**: `Run` 버튼을 클릭하면 `run_think_core.py` 스크립트가 서브프로세스로 실행되며, 생성되는 로그가 실시간으로 화면에 표시됩니다.
-      * **Pause**: `Pause` 버튼을 클릭하면 서브프로세스가 일시 중지됩니다. 이 상태에서 로그를 클릭하여 선택하거나, 커맨드를 입력하여 로그를 추가/수정/삭제할 수 있습니다.
-      * **Save/Resume**:
-          * 편집 내용이 있을 경우 버튼이 `Save`로 변경됩니다. 클릭하면 변경 사항이 현재 로그 파일에 저장됩니다.
-          * 편집 내용이 없을 경우 `Resume` 버튼이 표시되며, 클릭하면 프로세스가 다시 실행됩니다.
-      * **Kill**: 실행 중인 서브프로세스를 강제 종료합니다.
-
-3.  **로그 파일 열기**:
-
-      * **Open Log File**: 버튼을 클릭하여 기존 로그 파일을 엽니다.
-      * 파일을 열면 "View Mode"가 되며, 이 상태에서도 로그 편집이 가능합니다.
-      * **Save**: 편집된 내용을 파일에 저장하려면 `Save` 버튼을 클릭합니다.
-      * **Exit**: `Exit` 버튼을 클릭하여 "View Mode"를 종료하고 초기 화면으로 돌아갑니다.
-
-4.  **로그 편집 단축키**:
-
-      * **로그 선택**: Pause 상태 또는 View Mode에서 원하는 로그 라인을 클릭하여 선택합니다.
-      * **편집기 열기**: `Ctrl+E`를 눌러 선택된 로그를 수정하거나 새로운 로그를 추가할 수 있는 팝업 편집기를 엽니다.
-
------
-
-**🇬🇧 (English)**
-
-1.  **Execution**: Run the following command from the project's root directory to start the application. It is recommended to run the program as a Python module (`-m`) to ensure all relative imports work correctly.
-
-    ```bash
-    python -m src.utils.logging_gui.main
-    ```
-
-2.  **Real-Time Monitoring**:
-
-      * **Run**: Click the `Run` button to execute the `run_think_core.py` script as a subprocess. The generated logs will be displayed in real-time.
-      * **Pause**: Click the `Pause` button to pause the subprocess. In this state, you can click to select log lines or use commands to add, modify, or delete logs.
-      * **Save/Resume**:
-          * If there are unsaved edits, the button changes to `Save`. Click it to save the changes to the current log file.
-          * If there are no edits, the button will be `Resume`. Click it to resume the process.
-      * **Kill**: Forcibly terminates the running subprocess.
-
-3.  **Opening a Log File**:
-
-      * **Open Log File**: Click this button to open an existing log file.
-      * Opening a file enters "View Mode," where you can also edit the logs.
-      * **Save**: Click the `Save` button to commit your edits to the file.
-      * **Exit**: Click the `Exit` button to close the "View Mode" and return to the initial state.
-
-4.  **Log Editing Shortcut**:
-
-      * **Select Log**: In Paused state or View Mode, click a log line to select it.
-      * **Open Editor**: Press `Ctrl+E` to open a pop-up editor where you can modify the selected log or add a new one.
+## 색상 및 스타일 맞춤 설정 (Color & Style Customization)
+- 애플리케이션의 모든 시각적 요소(색상, 폰트, 버튼 스타일 등)는 `glen_prototype/src/utils/logging_gui/gui/theme.py` 파일의 `Theme` 클래스에서 중앙 관리됩니다.
+- UI의 모양을 변경하고 싶다면 이 파일의 값들을 수정하면 됩니다. 예를 들어, `PRIMARY_COLOR` 값을 바꾸면 해당 색상을 사용하는 모든 버튼의 색상이 한 번에 변경됩니다.
+- **(EN)** All visual elements of the application (colors, fonts, button styles, etc.) are centrally managed in the `Theme` class within the `glen_prototype/src/utils/logging_gui/gui/theme.py` file. To change the look and feel of the UI, you can modify the values in this file. For example, changing the `PRIMARY_COLOR` value will update the color of all buttons that use it.
