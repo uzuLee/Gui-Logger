@@ -198,7 +198,7 @@ class LogDisplay(tk.Frame):
                                     font=(self.theme.FONT_FAMILY_UI, 10), relief="flat",
                                     padx=10, pady=5)
         self.filter_button.pack(fill="x")
-        self.filter_button.bind("<Button-1>", self._show_filter_dropdown)
+        self.filter_button.bind("<Button-1>", self._toggle_filter_dropdown)
         self._bind_button_effects(self.filter_button, 
                                 getattr(self.theme, 'FILTER_BUTTON_BG_COLOR', self.theme.WIDGET_BG_COLOR), 
                                 getattr(self.theme, 'FILTER_BUTTON_HOVER_BG_COLOR', self.theme.HOVER_COLOR))
@@ -292,7 +292,7 @@ class LogDisplay(tk.Frame):
         
         self.filter_button_text.set(f"Filters ({'All' if all_enabled else f'{enabled_count}/{total_count}'}) {arrow}")
 
-    def _close_filter_dropdown(self):
+    def _close_filter_dropdown(self, event=None):
         '''
         # 필터 드롭다운 팝업을 닫습니다.
         # Closes the filter dropdown popup.
@@ -302,19 +302,22 @@ class LogDisplay(tk.Frame):
             self.filter_popup = None
         self._update_filter_button_text()
 
-    def _show_filter_dropdown(self, event):
+    def _toggle_filter_dropdown(self, event):
         '''
-        # 로그 레벨 필터링을 위한 드롭다운 메뉴를 표시합니다.
-        # Shows the dropdown menu for log level filtering.
+        # 필터 드롭다운 메뉴를 열거나 닫습니다.
+        # Toggles the filter dropdown menu open or closed.
         '''
         if hasattr(self, 'filter_popup') and self.filter_popup and self.filter_popup.winfo_exists():
             self._close_filter_dropdown()
             return
-
+            
         self.filter_popup = popup = tk.Toplevel(self.master)
         popup.wm_overrideredirect(True)
         popup.wm_transient(self.master)
         
+        # 팝업이 포커스를 잃으면 닫히도록 바인딩
+        popup.bind("<FocusOut>", self._close_filter_dropdown)
+
         DROPDOWN_BG_COLOR = getattr(self.theme, 'DROPDOWN_BG_COLOR', self.theme.WIDGET_BG_COLOR)
         DROPDOWN_BORDER_COLOR = getattr(self.theme, 'DROPDOWN_BORDER_COLOR', self.theme.ACCENT_COLOR)
         DROPDOWN_HOVER_BG_COLOR = getattr(self.theme, 'DROPDOWN_HOVER_BG_COLOR', self.theme.PRIMARY_HOVER_COLOR)
@@ -368,12 +371,25 @@ class LogDisplay(tk.Frame):
             enter_func, leave_func = create_hover_bindings(container, chk)
             container.bind("<Enter>", enter_func); container.bind("<Leave>", leave_func)
             chk.bind("<Enter>", enter_func); chk.bind("<Leave>", leave_func)
-
-        x = event.widget.winfo_rootx()
-        y = event.widget.winfo_rooty() + event.widget.winfo_height() + 2
         
-        popup.update_idletasks()
-        popup.geometry(f"{x}+{y}")
+        popup.update_idletasks() # 팝업의 실제 크기를 계산
+
+        button_widget = event.widget
+        x = button_widget.winfo_rootx()
+        y = button_widget.winfo_rooty() + button_widget.winfo_height() + 2
+        
+        popup_width = popup.winfo_width()
+        popup_height = popup.winfo_height()
+
+        screen_width = self.master.winfo_screenwidth()
+        screen_height = self.master.winfo_screenheight()
+
+        if x + popup_width > screen_width: x = screen_width - popup_width
+        if y + popup_height > screen_height: y = button_widget.winfo_rooty() - popup_height - 2
+        if x < 0: x = 0
+        if y < 0: y = 0
+
+        popup.geometry(f"+{x}+{y}")
         
         popup.attributes("-alpha", 0)
         popup.deiconify()
