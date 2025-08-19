@@ -130,7 +130,7 @@ class EditorWindow(tk.Toplevel):
         """
         self.is_add_mode.set(is_add)
         self.add_edit_button_text.set("Switch to Add Mode" if not is_add else "Switch to Edit Mode")
-        self.toggle_button.config(bg=self.theme.PRIMARY_COLOR if not is_add else self.theme.SUCCESS_COLOR)
+        self.toggle_button.config(bg=self.theme.LOG_LEVEL_COLORS['ADDED'] if not is_add else self.theme.LOG_LEVEL_COLORS['MODIFIED'])
         self.title("Edit Log Entry" if not is_add else "Add New Log Entry")
         self.editor_text.focus_set()
 

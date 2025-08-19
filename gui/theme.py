@@ -49,8 +49,8 @@ class Theme:
         "FATAL": "#8B0000",      # Dark red for critical, application-ending errors.
         "COMMENT": ACCENT_COLOR,  # Gold for user-added comments.
         "SYSTEM": "#8e44ad",      # Purple for system-level messages.
-        "ADDED": SUCCESS_COLOR,   # Green for newly added (unsaved) logs.
-        "MODIFIED": PRIMARY_COLOR,# Blue for modified (unsaved) logs.
+        "ADDED": "#3060FF",   # Green for newly added (unsaved) logs.
+        "MODIFIED": "#4680FF",# Blue for modified (unsaved) logs.
         "DELETED": DANGER_COLOR   # Crimson for logs marked for deletion.
     }
 
