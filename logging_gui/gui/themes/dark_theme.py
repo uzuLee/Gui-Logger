@@ -1,0 +1,63 @@
+# themes/dark_theme.py
+
+class Theme:
+    # --- 기본 색상 팔레트 ---
+    BG_COLOR = "#212121"
+    WIDGET_BG_COLOR = "#333333"
+    ENTRY_BG_COLOR = "#2C2C2C"
+    HOVER_COLOR = "#4F4F4F"
+    CLICK_COLOR = "#5A5A5A"
+    INSERT_CURSOR_COLOR = "#FFFFFF"
+    BUTTON_BORDER_COLOR = "#555555"
+
+    # --- 영역별 색상 ---
+    LOG_AREA_BG_COLOR = "#1A1A1A"
+    HIGHLIGHT_BG_COLOR = "#004080"
+    HIGHLIGHT_FG_COLOR = "#FFFFFF"
+    TEXT_COLOR = "#E0E0E0"
+    DISABLED_TEXT_COLOR = "#888888"
+    ACCENT_COLOR = "#FFD700"
+    LINK_COLOR = "#66B2FF"
+    
+    # --- 드롭다운 메뉴 색상 ---
+    DROPDOWN_BG_COLOR = "#2C2C2C"
+    DROPDOWN_BORDER_COLOR = "#1A1A1A"
+    DROPDOWN_HOVER_BG_COLOR = "#4A4A4A"
+
+    # --- 필터 버튼 색상 ---
+    FILTER_BUTTON_BG_COLOR = WIDGET_BG_COLOR
+    FILTER_BUTTON_FG_COLOR = TEXT_COLOR
+    FILTER_BUTTON_HOVER_BG_COLOR = HOVER_COLOR
+    FILTER_BUTTON_ACTIVE_BG_COLOR = CLICK_COLOR
+
+    # --- 커맨드 입력 색상 ---
+    COMMAND_BUTTON_HOVER_FG_COLOR = "#FFFFFF"
+    
+    # --- 상태 및 액션 색상 ---
+    SUCCESS_COLOR = "#008000"
+    SUCCESS_HOVER_COLOR = "#009900"
+    WARNING_COLOR = "#FF8C00"
+    WARNING_HOVER_COLOR = "#FFA500"
+    RESET_BUTTON_COLOR = WARNING_COLOR
+    RESET_BUTTON_HOVER_COLOR = WARNING_HOVER_COLOR
+    PRIMARY_COLOR = "#007ACC"
+    PRIMARY_HOVER_COLOR = "#0099FF"
+    SECONDARY_COLOR = "#339999"
+    SECONDARY_HOVER_COLOR = "#33CCCC"
+    KILL_COLOR = "#C70000"
+    KILL_HOVER_COLOR = "#E60000"
+    
+    # --- 로그 레벨별 색상 ---
+    LOG_LEVEL_COLORS = {
+        "TRACE": "#9E9E9E", "DEBUG": "#E0E0E0", "INFO": "#BDBDBD", "PROGRESS": "#9C27B0",
+        "WARNING": "#FFC107", "ERROR": "#F44336", "FATAL": "#D32F2F", "COMMENT": ACCENT_COLOR,
+        "ADDED": "#4CAF50", "MODIFIED": "#2196F3", "DELETED": "#F44336"
+    }
+
+    # --- 글꼴 ---
+    FONT_FAMILY_UI = "Segoe UI"
+    FONT_FAMILY_LOG = "Consolas"
+    
+    # --- 위젯 스타일 딕셔너리 ---
+    BUTTON_STYLE = { "fg": "#FFFFFF", "font": (FONT_FAMILY_UI, 10, "bold") }
+    DISABLED_BUTTON_STYLE = { "fg": DISABLED_TEXT_COLOR, "bg": "#424242" }

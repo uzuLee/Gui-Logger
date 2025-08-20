@@ -1,0 +1,63 @@
+# themes/light_theme.py
+
+class Theme:
+    # --- 기본 색상 팔레트 ---
+    BG_COLOR = "#F0F0F0"
+    WIDGET_BG_COLOR = "#E1E1E1"
+    ENTRY_BG_COLOR = "#FFFFFF"
+    HOVER_COLOR = "#C9C9C9"
+    CLICK_COLOR = "#B0B0B0"
+    INSERT_CURSOR_COLOR = "#000000"
+    BUTTON_BORDER_COLOR = "#BDBDBD"
+
+    # --- 영역별 색상 ---
+    LOG_AREA_BG_COLOR = "#FFFFFF"
+    HIGHLIGHT_BG_COLOR = "#D8E6F3"
+    HIGHLIGHT_FG_COLOR = "#000000"
+    TEXT_COLOR = "#212121"
+    DISABLED_TEXT_COLOR = "#A9A9A9"
+    ACCENT_COLOR = "#E6A200"
+    LINK_COLOR = "#0066CC"
+    
+    # --- 드롭다운 메뉴 색상 ---
+    DROPDOWN_BG_COLOR = "#FFFFFF"
+    DROPDOWN_BORDER_COLOR = "#FFFFFF"
+    DROPDOWN_HOVER_BG_COLOR = "#F0F0F0"
+
+    # --- 필터 버튼 색상 ---
+    FILTER_BUTTON_BG_COLOR = WIDGET_BG_COLOR
+    FILTER_BUTTON_FG_COLOR = TEXT_COLOR
+    FILTER_BUTTON_HOVER_BG_COLOR = HOVER_COLOR
+    FILTER_BUTTON_ACTIVE_BG_COLOR = CLICK_COLOR
+
+    # --- 커맨드 입력 색상 ---
+    COMMAND_BUTTON_HOVER_FG_COLOR = "#000000"
+    
+    # --- 상태 및 액션 색상 ---
+    SUCCESS_COLOR = "#28A745"
+    SUCCESS_HOVER_COLOR = "#218838"
+    WARNING_COLOR = "#FFC107"
+    WARNING_HOVER_COLOR = "#E0A800"
+    RESET_BUTTON_COLOR = WARNING_COLOR
+    RESET_BUTTON_HOVER_COLOR = WARNING_HOVER_COLOR
+    PRIMARY_COLOR = "#007BFF"
+    PRIMARY_HOVER_COLOR = "#0069D9"
+    SECONDARY_COLOR = "#17A2B8"
+    SECONDARY_HOVER_COLOR = "#138496"
+    KILL_COLOR = "#DC3545"
+    KILL_HOVER_COLOR = "#C82333"
+    
+    # --- 로그 레벨별 색상 ---
+    LOG_LEVEL_COLORS = {
+        "TRACE": "#6C757D", "DEBUG": "#343A40", "INFO": "#495057", "PROGRESS": "#6F42C1",
+        "WARNING": "#B67B03", "ERROR": "#DC3545", "FATAL": "#A0212E", "COMMENT": "#C78200",
+        "ADDED": "#28A745", "MODIFIED": "#007BFF", "DELETED": "#DC3545"
+    }
+
+    # --- 글꼴 ---
+    FONT_FAMILY_UI = "Segoe UI"
+    FONT_FAMILY_LOG = "Consolas"
+    
+    # --- 위젯 스타일 딕셔너리 ---
+    BUTTON_STYLE = { "fg": "#161616", "font": (FONT_FAMILY_UI, 10, "bold") }
+    DISABLED_BUTTON_STYLE = { "fg": DISABLED_TEXT_COLOR, "bg": "#D3D3D3" }
