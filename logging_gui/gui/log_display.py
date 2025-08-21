@@ -623,11 +623,11 @@ class LogDisplay(tk.Frame):
                 except Exception: break
             if is_outside: self._close_filter_dropdown()
 
-        if self.theme_popup and self.theme.winfo_exists():
+        if self.theme_popup and self.theme_popup.winfo_exists():
             w = widget_under_cursor
             is_outside = True
             while w:
-                if w == self.theme_menu_button or w == self.theme.theme_popup:
+                if w == self.theme_menu_button or w == self.theme_popup:
                     is_outside = False
                     break
                 try: w = w.master
@@ -649,7 +649,7 @@ class LogDisplay(tk.Frame):
         self._update_filter_button_text()
     
     def _close_theme_dropdown(self, event=None):
-        if self.theme_popup and self.theme.winfo_exists():
+        if self.theme_popup and self.theme_popup.winfo_exists():
             self.theme_popup.destroy()
             self.theme_popup = None
 
