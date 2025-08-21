@@ -30,8 +30,8 @@ The **Log Viewer** is a powerful GUI application for controlling the execution o
     (Easily set paths by dragging and dropping a script file or a log directory folder onto the window.)
   * **클릭 가능한 링크 (Clickable Links)**: 로그에 포함된 파일 경로 (`@C:\path\to\file`)나 웹 URL (`http://...`)을 Ctrl+클릭하여 바로 열 수 있습니다.
     (Instantly open file paths (`@C:\path\to\file`) or web URLs (`http://...`) in logs with a Ctrl+click.)
-  * **설정 저장 (Settings Persistence)**: 스크립트 경로, 로그 디렉토리, 테마, 필터 등 마지막으로 사용한 설정을 `gui_settings.json` 파일에 자동으로 저장하고 불러옵니다.
-    (Automatically saves and loads the last used settings—such as script path, log directory, theme, and filters—in a `gui_settings.json` file.)
+  * **UI 설정 자동 저장 (Automatic UI Settings Persistence)**: 스크립트 경로, 로그 디렉토리, 테마, 필터 체크박스 상태 등 UI 관련 설정은 변경 시 `gui_settings.json` 파일에 자동으로 저장됩니다. 애플리케이션을 다시 시작하면 마지막 상태가 그대로 복원됩니다.
+    (UI-related settings like the script path, log directory, theme, and filter checkbox states are automatically saved to `gui_settings.json` upon change. When you restart the application, your last configuration is restored.)
   * **커스터마이징 (Customization)**: `custom_logs.json` 파일을 통해 사용자 정의 로그 레벨과 색상을 추가할 수 있습니다.
     (Add custom log levels and colors via the `custom_logs.json` file.)
 
@@ -91,6 +91,10 @@ python -m main
     (Select your desired UI theme (e.g., `dark_theme`, `light_theme`) from the dropdown menu.)
   * **Filters**: 필터 버튼을 클릭하여 표시할 로그 레벨을 선택/해제할 수 있습니다.
     (Click the filter buttons to toggle the visibility of different log levels.)
+
+> *참고: 여기에 설정된 스크립트 경로, 로그 디렉토리, 테마, 필터 선택은 애플리케이션 종료 시 자동으로 저장되어 다음에 실행할 때 유지됩니다.*
+>
+> *(Note: The script path, log directory, theme, and filter selections configured here are automatically saved when the application is closed and will be restored on the next launch.)*
 
 ### 6.2. 스크립트 실행 및 제어 (Running & Controlling Scripts)
 
@@ -170,10 +174,10 @@ You can edit logs by entering commands in the input field at the bottom of the s
   * **Log Type**: 드롭다운 메뉴에서 로그 레벨을 선택할 수 있습니다. (Select a log level from the dropdown menu.)
   * **Apply**: 변경 사항을 로그 뷰어에 적용하고 창을 닫습니다. (Applies the changes to the log viewer and closes the window.)
 
-### 6.6. 변경 사항 저장 (Saving Changes)
+### 6.6. 로그 내용 변경사항 저장 (Saving Log Edits)
 
-일시정지 상태나 로그 뷰 모드에서 편집된 내용은 메모리에만 존재합니다.
-Changes made in the paused state or log view mode exist only in memory.
+일시정지 상태나 로그 뷰 모드에서 편집된 로그 내용은 메모리에만 존재하며, 자동으로 파일에 저장되지 않습니다.
+Log content edited in the paused state or log view mode exists only in memory and is not saved to the file automatically.
 
   * `Save & Resume` 또는 `Save` 버튼을 클릭하면 모든 변경사항(추가, 수정, 삭제)이 현재 로그 파일에 영구적으로 기록됩니다.
     (Clicking the `Save & Resume` or `Save` button permanently writes all changes (additions, modifications, deletions) to the current log file.)
