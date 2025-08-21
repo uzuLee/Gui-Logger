@@ -20,7 +20,7 @@ except ImportError:
     DND_SUPPORT = False
 
 from .theme import load_themes
-from .config import PAUSE_FLAG_PATH, DATA_DIR
+from .config import PAUSE_FLAG_PATH, DATA_DIR, THINK_CORE_SCRIPT_PATH, LOG_DIR
 from .editor_window import EditorWindow
 from .gui_widgets import StyledButton
 
@@ -141,26 +141,27 @@ class LogDisplay(tk.Frame):
             print(f"Error saving settings: {e}")
 
     def _reset_settings(self):
-        if not messagebox.askyesno("Reset Settings", "Are you sure you want to reset all settings to their defaults? This cannot be undone."):
-            return
-        
-        self._is_resetting = True
-        try:
-            if os.path.exists(SETTINGS_FILE):
-                os.remove(SETTINGS_FILE)
-
-            self.script_path_var.set("")
-            self.log_dir_var.set("")
-            default_theme = list(self.themes.keys())[0]
+            if not messagebox.askyesno("Reset Settings", "Are you sure you want to reset all settings to their defaults? This cannot be undone."):
+                return
             
-            for var in self.log_filter_vars.values():
-                var.set(True)
+            self._is_resetting = True
+            try:
+                if os.path.exists(SETTINGS_FILE):
+                    os.remove(SETTINGS_FILE)
 
-            self._on_theme_change(default_theme)
-            self.filter_logs(scroll_to_end=True) # 리셋 후에는 스크롤을 맨 아래로
-            self.update_status("Settings have been reset to default.", self.theme.ACCENT_COLOR)
-        finally:
-            self._is_resetting = False
+                # config.py에서 가져온 기본 경로로 설정합니다.
+                self.script_path_var.set(THINK_CORE_SCRIPT_PATH)
+                self.log_dir_var.set(LOG_DIR)
+                default_theme = list(self.themes.keys())[0]
+                
+                for var in self.log_filter_vars.values():
+                    var.set(True)
+
+                self._on_theme_change(default_theme)
+                self.filter_logs(scroll_to_end=True) # 리셋 후에는 스크롤을 맨 아래로
+                self.update_status("Settings have been reset to default.", self.theme.ACCENT_COLOR)
+            finally:
+                self._is_resetting = False
 
     def _on_closing(self):
         self._save_settings()
@@ -856,21 +857,39 @@ class LogDisplay(tk.Frame):
             self.log_area.tag_add("WEB_LINK", tag_start, tag_end)
 
     def add_log(self, message, level='INFO', to_file=True, scroll=True):
-        log_entry = {'message': message, 'level': level, 'state': 'SAVED'}
-        self.all_logs.append(log_entry)
-        is_filterable = level in self.filterable_log_types
-        should_display = not is_filterable or self.log_filter_vars.get(level, BooleanVar(value=True)).get()
-        if should_display:
-            self.log_area.config(state='normal')
-            tags = self._get_tags_for_log(log_entry)
-            start_index = self.log_area.index(tk.END + "-1c")
-            self.log_area.insert(tk.END, message + '\n', tags)
-            self._apply_link_tags(start_index)
-            if scroll: self.log_area.see(tk.END)
-            self.log_area.config(state='disabled')
-        if to_file and self.is_running and hasattr(self, 'log_file') and self.log_file and not self.log_file.closed:
-            self.log_file.write(message + '\n')
-            self.log_file.flush()
+            log_entry = {'message': message, 'level': level, 'state': 'SAVED'}
+            self.all_logs.append(log_entry)
+            is_filterable = level in self.filterable_log_types
+            should_display = not is_filterable or self.log_filter_vars.get(level, BooleanVar(value=True)).get()
+            if should_display:
+                self.log_area.config(state='normal')
+                tags = self._get_tags_for_log(log_entry)
+                start_index = self.log_area.index(tk.END + "-1c")
+                self.log_area.insert(tk.END, message + '\n', tags)
+                self._apply_link_tags(start_index)
+                if scroll: self.log_area.see(tk.END)
+                self.log_area.config(state='disabled')
+
+            # 파일에 써야 하고, 스크립트가 실행 중일 때
+            if to_file and self.is_running:
+                # 아직 로그 파일이 열리지 않았다면, 여기서 파일을 엽니다.
+                if not self.log_file or self.log_file.closed:
+                    try:
+                        self.log_file = open(self.current_log_file_path, "a", encoding="utf-8", buffering=1)
+                        self.log_file_open = True
+                    except IOError as e:
+                        # 파일 열기 실패 시 GUI에 에러 메시지를 표시하고 더 이상 파일 쓰기를 시도하지 않습니다.
+                        self.update_status(f"Error opening log file: {e}", self.theme.LOG_LEVEL_COLORS['DELETED'])
+                        self.log_file = None # 핸들을 다시 None으로 설정
+                        return # 함수 종료
+
+                # 파일이 성공적으로 열렸다면 메시지를 기록합니다.
+                if self.log_file and not self.log_file.closed:
+                    try:
+                        self.log_file.write(message + '\n')
+                        self.log_file.flush()
+                    except IOError as e:
+                        self.update_status(f"Error writing to log file: {e}", self.theme.LOG_LEVEL_COLORS['DELETED'])
 
     def update_progress_display(self, message):
         self.progress_label.config(text=message)
@@ -1106,51 +1125,57 @@ class LogDisplay(tk.Frame):
         self.status_canvas.create_oval(2, 2, 8, 8, fill=color, outline=color)
 
     def toggle_run_exit(self):
-        if self.is_running:
-            if self.think_core_process and self.think_core_process.poll() is None: self.think_core_process.terminate()
-        else:
-            script_path = self.script_path_var.get()
-            log_dir = self.log_dir_var.get()
-            if not Path(script_path).is_file():
-                self.update_status(f"Error: Script not found at {script_path}", self.theme.LOG_LEVEL_COLORS['DELETED'])
-                return
-            if not Path(log_dir).is_dir():
-                try: os.makedirs(log_dir, exist_ok=True)
-                except OSError as e:
-                    self.update_status(f"Error: Cannot create log directory: {e}", self.theme.LOG_LEVEL_COLORS['DELETED'])
+            if self.is_running:
+                if self.think_core_process and self.think_core_process.poll() is None: self.think_core_process.terminate()
+            else:
+                script_path = self.script_path_var.get()
+                log_dir = self.log_dir_var.get()
+                if not Path(script_path).is_file():
+                    self.update_status(f"Error: Script not found at {script_path}", self.theme.LOG_LEVEL_COLORS['DELETED'])
                     return
-            try: 
-                if os.path.exists(PAUSE_FLAG_PATH): os.remove(PAUSE_FLAG_PATH)
-            except Exception: pass
-            self.is_paused = False
-            self.all_logs.clear(); self.undo_stack.clear(); self.redo_stack.clear()
-            self.log_area.config(state='normal'); self.log_area.delete(1.0, tk.END); self.log_area.config(state='disabled')
-            self.update_status(f"Starting script: {Path(script_path).name}", self.theme.ACCENT_COLOR)
-            self.master.update_idletasks()
-            self.last_progress_message = None
-            self.update_progress_display("")
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            log_filename = f"glen_log_{timestamp}.log"
-            self.current_log_file_path = os.path.join(log_dir, log_filename)
-            try: self.log_file = open(self.current_log_file_path, "a", encoding="utf-8", buffering=1)
-            except IOError as e: self.update_status(f"Error opening log file: {e}", self.theme.LOG_LEVEL_COLORS['DELETED']); return
-            python_executable = sys.executable
-            try:
-                command_to_run = [python_executable, script_path, "--data-dir", str(DATA_DIR)]
-                project_root = Path(script_path).resolve().parent.parent.parent
-                self.think_core_process = subprocess.Popen(
-                    command_to_run, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                    text=True, encoding='utf-8', errors='replace', bufsize=1,
-                    creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0,
-                    cwd=str(project_root)
-                )
-                self.is_running = True
-                self.log_file_open = True
-                self.log_queue.put(('add', {'message': "Process started.", 'level': 'SYSTEM'}))
-                threading.Thread(target=self._read_think_core_output, daemon=True).start()
-                self.master.after(50, self.process_log_queue)
-            except Exception as e: self.update_status(f"Error starting process: {e}", self.theme.LOG_LEVEL_COLORS['DELETED'])
-        self.update_ui_for_state()
+                if not Path(log_dir).is_dir():
+                    try: os.makedirs(log_dir, exist_ok=True)
+                    except OSError as e:
+                        self.update_status(f"Error: Cannot create log directory: {e}", self.theme.LOG_LEVEL_COLORS['DELETED'])
+                        return
+                try: 
+                    if os.path.exists(PAUSE_FLAG_PATH): os.remove(PAUSE_FLAG_PATH)
+                except Exception: pass
+                self.is_paused = False
+                self.all_logs.clear(); self.undo_stack.clear(); self.redo_stack.clear()
+                self.log_area.config(state='normal'); self.log_area.delete(1.0, tk.END); self.log_area.config(state='disabled')
+                self.update_status(f"Starting script: {Path(script_path).name}", self.theme.ACCENT_COLOR)
+                self.master.update_idletasks()
+                self.last_progress_message = None
+                self.update_progress_display("")
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                
+                # --- 파일 이름 수정 부분 ---
+                # 이미지에 보이는 'n_log_viewer_' 형식으로 파일 이름을 변경하시려면 아래와 같이 수정하세요.
+                # 기존: log_filename = f"glen_log_{timestamp}.log"
+                log_filename = f"n_log_viewer_{timestamp}.log"
+                # --------------------------
+
+                self.current_log_file_path = os.path.join(log_dir, log_filename)
+                self.log_file = None # 파일 핸들을 None으로 초기화 (파일을 아직 열지 않음)
+                self.log_file_open = False
+
+                python_executable = sys.executable
+                try:
+                    command_to_run = [python_executable, script_path, "--data-dir", str(DATA_DIR)]
+                    project_root = Path(script_path).resolve().parent.parent.parent
+                    self.think_core_process = subprocess.Popen(
+                        command_to_run, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                        text=True, encoding='utf-8', errors='replace', bufsize=1,
+                        creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0,
+                        cwd=str(project_root)
+                    )
+                    self.is_running = True
+                    self.log_queue.put(('add', {'message': "Process started.", 'level': 'SYSTEM'}))
+                    threading.Thread(target=self._read_think_core_output, daemon=True).start()
+                    self.master.after(50, self.process_log_queue)
+                except Exception as e: self.update_status(f"Error starting process: {e}", self.theme.LOG_LEVEL_COLORS['DELETED'])
+            self.update_ui_for_state()
 
     def process_log_queue(self):
         messages_processed = False
