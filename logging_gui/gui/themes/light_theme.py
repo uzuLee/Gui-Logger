@@ -51,7 +51,7 @@ class Theme:
     LOG_LEVEL_COLORS = {
         "TRACE": "#6C757D", "DEBUG": "#343A40", "INFO": "#495057", "PROGRESS": "#6F42C1",
         "WARNING": "#B67B03", "ERROR": "#DC3545", "FATAL": "#A0212E", "COMMENT": "#C78200",
-        "ADDED": "#28A745", "MODIFIED": "#007BFF", "DELETED": "#DC3545"
+        "ADDED": "#0084FF", "MODIFIED": "#00CCFF", "DELETED": "#DC3545"
     }
 
     # --- 글꼴 ---

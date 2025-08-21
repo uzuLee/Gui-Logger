@@ -49,9 +49,9 @@ class Theme:
     
     # --- 로그 레벨별 색상 ---
     LOG_LEVEL_COLORS = {
-        "TRACE": "#9E9E9E", "DEBUG": "#E0E0E0", "INFO": "#BDBDBD", "PROGRESS": "#9C27B0",
-        "WARNING": "#FFC107", "ERROR": "#F44336", "FATAL": "#D32F2F", "COMMENT": ACCENT_COLOR,
-        "ADDED": "#4CAF50", "MODIFIED": "#2196F3", "DELETED": "#F44336"
+        "TRACE": "#6C757D", "DEBUG": "#343A40", "INFO": "#495057", "PROGRESS": "#6F42C1",
+        "WARNING": "#B67B03", "ERROR": "#DC3545", "FATAL": "#A0212E", "COMMENT": "#C78200",
+        "ADDED": "#0084FF", "MODIFIED": "#00CCFF", "DELETED": "#DC3545"
     }
 
     # --- 글꼴 ---

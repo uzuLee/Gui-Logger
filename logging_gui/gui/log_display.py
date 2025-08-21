@@ -76,14 +76,21 @@ class LogDisplay(tk.Frame):
         self.filter_popup = None
         self.theme_popup = None
         self.is_running = False; self.is_paused = False; self.log_file_open = False
-        self.link_was_clicked = False; self.think_core_process = None; self.current_log_file_path = None
+        self.think_core_process = None; self.current_log_file_path = None
         self.log_area_insert_index = None; self.selected_log_line_index = None; self.selected_log_abs_index = None
         self.log_font_size = 10; self.editor_window_instance = None
         self._animation_ids = {}
         self._is_resetting = False
         
         self.search_var = tk.StringVar()
-        self.search_var.trace_add("write", lambda *args: self.filter_logs())
+        self.search_var.trace_add("write", lambda *args: self._perform_search_and_filter_logs())
+        self.case_sensitive_var = tk.BooleanVar(value=False)
+        self.case_sensitive_var.trace_add("write", lambda *args: self._perform_search_and_filter_logs())
+        self.regex_var = tk.BooleanVar(value=False)
+        self.regex_var.trace_add("write", lambda *args: self._perform_search_and_filter_logs())
+
+        self.search_results = []
+        self.current_search_index = -1
         
         self.is_full_screen_log = False
         
@@ -153,7 +160,7 @@ class LogDisplay(tk.Frame):
                 var.set(True)
 
             self._on_theme_change(default_theme)
-            self.filter_logs(scroll_to_end=True)
+            self._perform_search_and_filter_logs(scroll_to_end=True)
             self.update_status("Settings have been reset to default.", self.theme.ACCENT_COLOR)
         finally:
             self._is_resetting = False
@@ -164,6 +171,31 @@ class LogDisplay(tk.Frame):
             self.editor_window_instance.destroy()
         self.master.destroy()
 
+    def _toggle_case_sensitivity(self):
+        self.case_sensitive_var.set(not self.case_sensitive_var.get())
+        self._update_search_option_buttons_style()
+
+    def _toggle_regex(self):
+        self.regex_var.set(not self.regex_var.get())
+        self._update_search_option_buttons_style()
+
+    def _update_search_option_buttons_style(self):
+        # Update Case button style
+        if self.case_sensitive_var.get():
+            self.case_button.update_style(bg=self.theme.PRIMARY_COLOR, hover_color=self.theme.PRIMARY_HOVER_COLOR, fg=self.theme.BUTTON_STYLE['fg'])
+        else:
+            self.case_button.update_style(bg=self.theme.WIDGET_BG_COLOR, hover_color=self.theme.HOVER_COLOR, fg=self.theme.TEXT_COLOR)
+
+        # Update Regex button style
+        if self.regex_var.get():
+            self.regex_button.update_style(bg=self.theme.PRIMARY_COLOR, hover_color=self.theme.PRIMARY_HOVER_COLOR, fg=self.theme.BUTTON_STYLE['fg'])
+        else:
+            self.regex_button.update_style(bg=self.theme.WIDGET_BG_COLOR, hover_color=self.theme.HOVER_COLOR, fg=self.theme.TEXT_COLOR)
+
+    def get_all_log_levels(self) -> list:
+        """Returns a list of all standard and custom log levels."""
+        return self.filterable_log_types
+    
     def _setup_global_shortcuts(self):
         self.master.bind_all("<Control-z>", lambda e: self._undo(1))
         self.master.bind_all("<Control-y>", lambda e: self._redo(1))
@@ -296,30 +328,67 @@ class LogDisplay(tk.Frame):
             border_color=self.theme.BUTTON_BORDER_COLOR, hover_border_color=self.theme.ACCENT_COLOR)
         self.toggle_view_btn.pack(side="right")
         
-        self.font_decrease_btn = StyledButton(font_control_frame, self, text="A-", command=self._decrease_font_size, **font_btn_kwargs,
-            bg=self.theme.WIDGET_BG_COLOR, fg=self.theme.TEXT_COLOR, hover_color=self.theme.HOVER_COLOR,
-            border_color=self.theme.BUTTON_BORDER_COLOR, hover_border_color=self.theme.ACCENT_COLOR)
-        self.font_decrease_btn.pack(side="right")
-        
         self.font_increase_btn = StyledButton(font_control_frame, self, text="A+", command=self._increase_font_size, **font_btn_kwargs,
             bg=self.theme.WIDGET_BG_COLOR, fg=self.theme.TEXT_COLOR, hover_color=self.theme.HOVER_COLOR,
             border_color=self.theme.BUTTON_BORDER_COLOR, hover_border_color=self.theme.ACCENT_COLOR)
         self.font_increase_btn.pack(side="right", padx=(2,0))
 
+        self.font_decrease_btn = StyledButton(font_control_frame, self, text="A-", command=self._decrease_font_size, **font_btn_kwargs,
+            bg=self.theme.WIDGET_BG_COLOR, fg=self.theme.TEXT_COLOR, hover_color=self.theme.HOVER_COLOR,
+            border_color=self.theme.BUTTON_BORDER_COLOR, hover_border_color=self.theme.ACCENT_COLOR)
+        self.font_decrease_btn.pack(side="right")
+
         self.search_frame = Frame(self, bg=self.theme.BG_COLOR)
         self.search_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=5)
-        self.search_frame.grid_columnconfigure(1, weight=1)
+        self.search_frame.grid_columnconfigure(0, weight=1)
 
-        Label(self.search_frame, text="Search:", bg=self.theme.BG_COLOR, fg=self.theme.TEXT_COLOR).grid(row=0, column=0, padx=5)
+        # --- Main search bar row ---
+        search_main_frame = Frame(self.search_frame, bg=self.theme.BG_COLOR)
+        search_main_frame.grid(row=0, column=0, sticky="ew")
+        search_main_frame.grid_columnconfigure(1, weight=1)
 
-        self.search_entry = Entry(self.search_frame, textvariable=self.search_var, bg=self.theme.ENTRY_BG_COLOR, fg=self.theme.TEXT_COLOR, insertbackground=self.theme.INSERT_CURSOR_COLOR, relief="flat", bd=0, font=(self.theme.FONT_FAMILY_UI, 10))
+        Label(search_main_frame, text="Search:", bg=self.theme.BG_COLOR, fg=self.theme.TEXT_COLOR).grid(row=0, column=0, padx=5)
+
+        self.search_entry = Entry(search_main_frame, textvariable=self.search_var, bg=self.theme.ENTRY_BG_COLOR, fg=self.theme.TEXT_COLOR, insertbackground=self.theme.INSERT_CURSOR_COLOR, relief="flat", bd=0, font=(self.theme.FONT_FAMILY_UI, 10))
         self.search_entry.grid(row=0, column=1, sticky="ew", padx=5, ipady=4)
+        self.search_entry.bind("<Return>", self.next_match)
+        self.search_entry.bind("<Shift-Return>", self.prev_match)
 
-        self.clear_search_btn = StyledButton(self.search_frame, self, text="X", command=lambda: self.search_var.set(""),
-            font=(self.theme.FONT_FAMILY_UI, 9, "bold"), padx=6, pady=2,
-            bg=self.theme.WIDGET_BG_COLOR, fg=self.theme.DISABLED_TEXT_COLOR, hover_color=self.theme.HOVER_COLOR,
-            border_color=self.theme.BUTTON_BORDER_COLOR, hover_border_color=self.theme.ACCENT_COLOR)
-        self.clear_search_btn.grid(row=0, column=2, padx=5)
+        # --- Navigation controls (including Case and Regex buttons) ---
+        nav_frame = Frame(search_main_frame, bg=self.theme.BG_COLOR)
+        nav_frame.grid(row=0, column=2, padx=5)
+
+        btn_kwargs = {'font': (self.theme.FONT_FAMILY_UI, 9), 'padx': 5, 'pady': 1,
+                      'bg': self.theme.WIDGET_BG_COLOR, 'fg': self.theme.TEXT_COLOR, 'hover_color': self.theme.HOVER_COLOR,
+                      'border_color': self.theme.BUTTON_BORDER_COLOR, 'hover_border_color': self.theme.ACCENT_COLOR}
+
+        self.clear_search_btn = StyledButton(nav_frame, self, text="X", command=self._clear_search, **btn_kwargs)
+        self.clear_search_btn.pack(side="left")
+
+        self.case_button = StyledButton(nav_frame, self, text="Case", command=self._toggle_case_sensitivity, **btn_kwargs)
+        self.case_button.pack(side="left", padx=(5, 0))
+
+        self.regex_button = StyledButton(nav_frame, self, text="Regex", command=self._toggle_regex, **btn_kwargs)
+        self.regex_button.pack(side="left", padx=(5, 0))
+
+        self.prev_match_btn = StyledButton(nav_frame, self, text="<", command=self.prev_match, **btn_kwargs)
+        self.prev_match_btn.pack(side="left", padx=(5, 0))
+
+        self.search_count_label = Label(nav_frame, text="0/0", font=(self.theme.FONT_FAMILY_UI, 9), bg=self.theme.BG_COLOR, fg=self.theme.DISABLED_TEXT_COLOR, padx=4)
+        self.search_count_label.pack(side="left")
+
+        self.next_match_btn = StyledButton(nav_frame, self, text=">", command=self.next_match, **btn_kwargs)
+        self.next_match_btn.pack(side="left")
+
+        # Remove the separate search_options_frame as buttons are moved
+        # search_options_frame = Frame(self.search_frame, bg=self.theme.BG_COLOR)
+        # search_options_frame.grid(row=1, column=0, sticky="w", padx=5)
+
+        # self.case_button = StyledButton(search_options_frame, self, text="Case", command=self._toggle_case_sensitivity, **btn_kwargs)
+        # self.case_button.pack(side="left")
+
+        # self.regex_button = StyledButton(search_options_frame, self, text="Regex", command=self._toggle_regex, **btn_kwargs)
+        # self.regex_button.pack(side="left", padx=10)
 
         self.log_area_frame = Frame(self, bg=self.theme.BG_COLOR)
         self.log_area_frame.grid(row=3, column=0, sticky="nsew", padx=10, pady=(0, 10))
@@ -460,11 +529,9 @@ class LogDisplay(tk.Frame):
         self.font_decrease_btn.update_style(**widget_btn_theme)
         self.toggle_view_btn.update_style(**widget_btn_theme)
         self.theme_menu_button.update_style(**widget_btn_theme)
-        self.clear_search_btn.update_style(
-            font=(self.theme.FONT_FAMILY_UI, 9, "bold"), bg=self.theme.WIDGET_BG_COLOR, fg=self.theme.DISABLED_TEXT_COLOR, 
-            hover_color=self.theme.HOVER_COLOR, border_color=self.theme.BUTTON_BORDER_COLOR, 
-            hover_border_color=self.theme.ACCENT_COLOR
-        )
+        self.clear_search_btn.update_style(**widget_btn_theme)
+        self.prev_match_btn.update_style(**widget_btn_theme)
+        self.next_match_btn.update_style(**widget_btn_theme)
         
         self.filter_button.update_style(
             bg=self.theme.FILTER_BUTTON_BG_COLOR, fg=self.theme.FILTER_BUTTON_FG_COLOR, hover_color=self.theme.FILTER_BUTTON_HOVER_BG_COLOR,
@@ -488,7 +555,7 @@ class LogDisplay(tk.Frame):
         
         self.update_ui_for_state()
         self.configure_tags()
-        self.filter_logs()
+        self._perform_search_and_filter_logs()
         if self.editor_window_instance and self.editor_window_instance.winfo_exists():
             self.editor_window_instance.destroy()
             self.open_editor_window()
@@ -521,13 +588,19 @@ class LogDisplay(tk.Frame):
 
     def _on_drop(self, event):
         self.dnd_overlay.place_forget()
-        try: paths = self.master.tk.splitlist(event.data)
-        except (tk.TclError, AttributeError): paths = event.data.strip().replace("{", "").replace("}", "").split()
-        if not paths: return
-        path = paths[0] 
+        try:
+            paths = self.master.tk.splitlist(event.data)
+        except (tk.TclError, AttributeError):
+            paths = event.data.strip().replace("{", "").replace("}", "").split()
+        if not paths:
+            return
+        path = paths[0]
         if os.path.isfile(path):
-            self.script_path_var.set(path)
-            self.update_status(f"Script path set to: {os.path.basename(path)}", self.theme.LOG_LEVEL_COLORS['ADDED'])
+            if path.lower().endswith(".log"):
+                self._load_log_file(path)
+            else:
+                self.script_path_var.set(path)
+                self.update_status(f"Script path set to: {os.path.basename(path)}", self.theme.LOG_LEVEL_COLORS['ADDED'])
         elif os.path.isdir(path):
             if self._is_restricted_folder(path):
                 messagebox.showwarning("Restricted Folder", f"This folder is restricted and cannot be used as a log directory:\n\n{path}")
@@ -550,11 +623,11 @@ class LogDisplay(tk.Frame):
                 except Exception: break
             if is_outside: self._close_filter_dropdown()
 
-        if self.theme_popup and self.theme_popup.winfo_exists():
+        if self.theme_popup and self.theme.winfo_exists():
             w = widget_under_cursor
             is_outside = True
             while w:
-                if w == self.theme_menu_button or w == self.theme_popup:
+                if w == self.theme_menu_button or w == self.theme.theme_popup:
                     is_outside = False
                     break
                 try: w = w.master
@@ -576,12 +649,12 @@ class LogDisplay(tk.Frame):
         self._update_filter_button_text()
     
     def _close_theme_dropdown(self, event=None):
-        if self.theme_popup and self.theme_popup.winfo_exists():
+        if self.theme_popup and self.theme.winfo_exists():
             self.theme_popup.destroy()
             self.theme_popup = None
 
     def _toggle_theme_dropdown(self, event):
-        if self.theme_popup and self.theme_popup.winfo_exists():
+        if self.theme_popup and self.theme.winfo_exists():
             self._close_theme_dropdown()
             return
         
@@ -668,7 +741,7 @@ class LogDisplay(tk.Frame):
 
         def select_all(select=True):
             for var in self.log_filter_vars.values(): var.set(select)
-            self.filter_logs()
+            self._perform_search_and_filter_logs()
 
         all_button = tk.Button(controls_frame, text="Select All", command=lambda: select_all(True), bg=DROPDOWN_BG_COLOR, fg=self.theme.TEXT_COLOR, relief="flat", font=(self.theme.FONT_FAMILY_UI, 9), activebackground=DROPDOWN_HOVER_BG_COLOR)
         all_button.pack(side="left", padx=(5,0))
@@ -691,7 +764,7 @@ class LogDisplay(tk.Frame):
             chk_color = self.theme.LOG_LEVEL_COLORS.get(log_type, self.theme.TEXT_COLOR)
             
             container = Frame(check_frame, bg=DROPDOWN_BG_COLOR)
-            chk = Checkbutton(container, text=log_type, variable=var, command=self.filter_logs,
+            chk = Checkbutton(container, text=log_type, variable=var, command=self._perform_search_and_filter_logs,
                               bg=DROPDOWN_BG_COLOR, fg=chk_color, selectcolor=self.theme.ENTRY_BG_COLOR,
                               font=(self.theme.FONT_FAMILY_UI, 9, "bold"), bd=0, highlightthickness=0,
                               activebackground=DROPDOWN_BG_COLOR, activeforeground=chk_color,
@@ -721,77 +794,136 @@ class LogDisplay(tk.Frame):
         popup.focus_set()
         self._update_filter_button_text()
 
-    def filter_logs(self, scroll_to_end=False):
-            self._update_filter_button_text()
-            
-            is_searching = bool(self.search_var.get())
-            current_scroll_fraction = self.log_area.yview()[0]
+    def _clear_search(self):
+        self.search_var.set("")
+        self.log_area.tag_remove("search_highlight", '1.0', tk.END)
+        self.log_area.tag_remove("current_search_highlight", '1.0', tk.END)
+        self.search_results = []
+        self.current_search_index = -1
+        self.search_count_label.config(text="0/0")
 
-            self.log_area.configure(state='normal')
-            self.log_area.delete(1.0, tk.END)
+    def next_match(self, event=None):
+        if not self.search_results:
+            return "break"
+        self.current_search_index = (self.current_search_index + 1) % len(self.search_results)
+        self._update_search_highlight()
+        return "break"
 
-            search_term = self.search_var.get()
-            search_term_lower = search_term.lower() if search_term else ""
+    def prev_match(self, event=None):
+        if not self.search_results:
+            return "break"
+        self.current_search_index = (self.current_search_index - 1 + len(self.search_results)) % len(self.search_results)
+        self._update_search_highlight()
+        return "break"
 
-            for i, log_entry in enumerate(self.all_logs):
-                level = log_entry.get('level', 'INFO')
-                
-                is_filterable = level in self.filterable_log_types
-                level_should_display = not is_filterable or self.log_filter_vars.get(level, BooleanVar(value=True)).get()
+    def _update_search_highlight(self):
+        self.log_area.tag_remove("current_search_highlight", "1.0", tk.END)
+        if not self.search_results or self.current_search_index < 0:
+            return
 
-                message_lower = log_entry['message'].lower()
-                search_match = not search_term_lower or search_term_lower in message_lower
+        result = self.search_results[self.current_search_index]
+        start_index, end_index = result['start'], result['end']
+        
+        self.log_area.tag_add("current_search_highlight", start_index, end_index)
+        self.log_area.see(start_index)
+        
+        self.search_count_label.config(text=f"{self.current_search_index + 1}/{len(self.search_results)}")
 
-                if (log_entry.get('state') != 'DELETED') and level_should_display and search_match:
-                    base_tags = list(self._get_tags_for_log(log_entry)) + [f"log_index_{i}"]
-                    links = self._find_links_in_text(log_entry['message'])
+    def _perform_search_and_filter_logs(self, scroll_to_end=False):
+        self._update_filter_button_text()
+        
+        # Clear previous search highlights and results
+        self.log_area.tag_remove("search_highlight", '1.0', tk.END)
+        self.log_area.tag_remove("current_search_highlight", '1.0', tk.END)
+        self.search_results = []
+        self.current_search_index = -1
 
-                    if not links:
-                        self.log_area.insert(tk.END, log_entry['message'] + '\n', tuple(base_tags))
-                    else:
-                        last_index = 0
-                        sorted_links = sorted(links, key=lambda l: l[1])
-                        for link_type, link_start, link_end in sorted_links:
-                            plain_text = log_entry['message'][last_index:link_start]
-                            if plain_text:
-                                self.log_area.insert(tk.END, plain_text, tuple(base_tags))
-                            
-                            link_text = log_entry['message'][link_start:link_end]
-                            link_tags = tuple(base_tags + [link_type])
-                            self.log_area.insert(tk.END, link_text, link_tags)
-                            
-                            last_index = link_end
-                        
-                        remaining_text = log_entry['message'][last_index:]
-                        if remaining_text:
-                            self.log_area.insert(tk.END, remaining_text, tuple(base_tags))
-                        self.log_area.insert(tk.END, '\n')
+        # Display filtered logs
+        current_scroll_fraction = self.log_area.yview()[0]
+        self.log_area.configure(state='normal')
+        self.log_area.delete(1.0, tk.END)
 
-                    if search_term_lower:
-                        line_start_index = self.log_area.index(f"end-2c linestart")
-                        line_content = log_entry['message']
-                        line_num_str = line_start_index.split('.')[0]
-                        start_pos = '1.0'
+        search_term = self.search_var.get()
+        
+        # Prepare search flags
+        search_flags = 0 if self.case_sensitive_var.get() else re.IGNORECASE
+        use_regex = self.regex_var.get()
 
-                        while True:
-                            match_start = line_content.lower().find(search_term_lower, int(start_pos.split('.')[1]))
-                            if match_start == -1:
-                                break
-                            
-                            highlight_start = f"{line_num_str}.{match_start}"
-                            highlight_end = f"{highlight_start}+{len(search_term)}c"
-                            
-                            self.log_area.tag_add("search_highlight", highlight_start, highlight_end)
-                            start_pos = f"1.{match_start + 1}"
+        temp_search_results = []
 
-            self.log_area.configure(state='disabled')
-            
-            if scroll_to_end:
-                self.log_area.yview_moveto(1.0)
-            elif not is_searching:
-                self.log_area.yview_moveto(current_scroll_fraction)
-            else:
-                self.log_area.yview_moveto(0.0)
+        for i, log_entry in enumerate(self.all_logs):
+            level = log_entry.get('level', 'INFO')
+            is_filterable = level in self.filterable_log_types
+            level_should_display = not is_filterable or self.log_filter_vars.get(level, BooleanVar(value=True)).get()
+
+            if log_entry.get('state') != 'DELETED' and level_should_display:
+                base_tags = list(self._get_tags_for_log(log_entry)) + [f"log_index_{i}"]
+                log_message = log_entry['message']
+                links = self._find_links_in_text(log_message)
+
+                # Insert text piece by piece to handle links correctly
+                if not links:
+                    self.log_area.insert(tk.END, log_message + '\n', tuple(base_tags))
+                else:
+                    last_index = 0
+                    sorted_links = sorted(links, key=lambda l: l[1])
+                    for link_type, link_start, link_end in sorted_links:
+                        plain_text = log_message[last_index:link_start]
+                        if plain_text:
+                            self.log_area.insert(tk.END, plain_text, tuple(base_tags))
+                        link_text = log_message[link_start:link_end]
+                        link_tags = tuple(base_tags + [link_type])
+                        self.log_area.insert(tk.END, link_text, link_tags)
+                        last_index = link_end
+                    remaining_text = log_message[last_index:]
+                    if remaining_text:
+                        self.log_area.insert(tk.END, remaining_text, tuple(base_tags))
+                    self.log_area.insert(tk.END, '\n')
+
+                # Perform search on the newly inserted line
+                if search_term:
+                    line_start_index = self.log_area.index(f"end-2c linestart")
+                    try:
+                        if use_regex:
+                            for match in re.finditer(search_term, log_message, search_flags):
+                                start, end = match.span()
+                                temp_search_results.append({
+                                    'start': f"{line_start_index}+{start}c",
+                                    'end': f"{line_start_index}+{end}c"
+                                })
+                        else: # Plain text search
+                            start = 0
+                            while True:
+                                start = log_message.lower().find(search_term.lower(), start) if not self.case_sensitive_var.get() else log_message.find(search_term, start)
+                                if start == -1: break
+                                end = start + len(search_term)
+                                temp_search_results.append({
+                                    'start': f"{line_start_index}+{start}c",
+                                    'end': f"{line_start_index}+{end}c"
+                                })
+                                start += 1
+                    except re.error as e:
+                        self.update_status(f"Regex Error: {e}", self.theme.LOG_LEVEL_COLORS['DELETED'])
+                        pass # Ignore invalid regex
+
+        # Add all found matches to the main search highlight tag
+        for result in temp_search_results:
+            self.log_area.tag_add("search_highlight", result['start'], result['end'])
+        
+        self.search_results = temp_search_results
+        self.log_area.configure(state='disabled')
+
+        if scroll_to_end:
+            self.log_area.yview_moveto(1.0)
+        else:
+            self.log_area.yview_moveto(current_scroll_fraction)
+
+        # Update search count and highlight first match
+        if self.search_results:
+            self.current_search_index = 0
+            self._update_search_highlight()
+        else:
+            self.search_count_label.config(text="0/0")
                 
     def _browse_script_file(self):
         filepath = filedialog.askopenfilename(
@@ -873,6 +1005,8 @@ class LogDisplay(tk.Frame):
         if self.selected_log_line_index == line_start or not self.log_area.get(line_start, f"{line_start} lineend").strip():
             self.selected_log_line_index = self.selected_log_abs_index = self.log_area_insert_index = None
             self._normalize_all_logs(scroll_to_end=False)
+            if self.editor_window_instance and self.editor_window_instance.winfo_exists():
+                self.editor_window_instance.update_content(None) # Reset editor to 'Add' mode on deselection
         else:
             tags = self.log_area.tag_names(line_start)
             abs_index = None
@@ -934,7 +1068,7 @@ class LogDisplay(tk.Frame):
         self.editor_window_instance.geometry(f"{editor_w}x{editor_h}+{pos_x}+{pos_y}")
 
     def _normalize_all_logs(self, scroll_to_end=True):
-        self.filter_logs(scroll_to_end=scroll_to_end)
+        self._perform_search_and_filter_logs(scroll_to_end=scroll_to_end)
 
     def configure_tags(self):
         base_font = (self.theme.FONT_FAMILY_LOG, self.log_font_size)
@@ -953,6 +1087,7 @@ class LogDisplay(tk.Frame):
         highlight_bg = getattr(self.theme, 'SEARCH_HIGHLIGHT_BG', '#f0e68c')
         highlight_fg = getattr(self.theme, 'SEARCH_HIGHLIGHT_FG', '#000000')
         self.log_area.tag_config("search_highlight", background=highlight_bg, foreground=highlight_fg)
+        self.log_area.tag_config("current_search_highlight", background=self.theme.ACCENT_COLOR, foreground=self.theme.BG_COLOR)
 
     def _get_tags_for_log(self, log_entry):
         tags = [log_entry.get('level', 'INFO')]
@@ -962,7 +1097,7 @@ class LogDisplay(tk.Frame):
     def _find_links_in_text(self, line_text):
         """Finds links in a string and returns their details."""
         links = []
-        path_regex = r'(@(?:"[a-zA-Z]:[\\/][^"\n]*"|"\[^"\n]+"|[a-zA-Z]:[\\/][^\s<>"\n]*|\\[^\s<>"\n]+))'
+        path_regex = r'(@(?:"[a-zA-Z]:[\\/][^"\n]*"|\[[^"\n]+\]|[a-zA-Z]:[\\/][^\s<>"\n]*|\\[^\s<>"\n]+))'
         web_regex = r'(https?://[^\s<>"\n]+)'
 
         for match in re.finditer(path_regex, line_text):
@@ -974,74 +1109,57 @@ class LogDisplay(tk.Frame):
         return links
                 
     def add_log(self, message, level='INFO', to_file=True, scroll=True):
-            log_entry = {'message': message, 'level': level, 'state': 'SAVED'}
-            self.all_logs.append(log_entry)
-            
-            is_filterable = level in self.filterable_log_types
-            should_display_level = not is_filterable or self.log_filter_vars.get(level, BooleanVar(value=True)).get()
-            search_term = self.search_var.get().lower()
-            search_match = not search_term or search_term in message.lower()
+        # This is a simplified version for real-time logs. 
+        # A full search/filter is not performed for every single new log for performance reasons.
+        log_entry = {'message': message, 'level': level, 'state': 'SAVED'}
+        self.all_logs.append(log_entry)
+        
+        is_filterable = level in self.filterable_log_types
+        should_display_level = not is_filterable or self.log_filter_vars.get(level, BooleanVar(value=True)).get()
+        
+        if should_display_level:
+            self.log_area.config(state='normal')
+            i = len(self.all_logs) - 1
+            base_tags = list(self._get_tags_for_log(log_entry)) + [f"log_index_{i}"]
+            links = self._find_links_in_text(log_entry['message'])
 
-            if should_display_level and search_match:
-                self.log_area.config(state='normal')
-                
-                i = len(self.all_logs) - 1
-                base_tags = list(self._get_tags_for_log(log_entry)) + [f"log_index_{i}"]
-                links = self._find_links_in_text(log_entry['message'])
+            if not links:
+                self.log_area.insert(tk.END, log_entry['message'] + '\n', tuple(base_tags))
+            else:
+                last_index = 0
+                sorted_links = sorted(links, key=lambda l: l[1])
+                for link_type, link_start, link_end in sorted_links:
+                    plain_text = log_entry['message'][last_index:link_start]
+                    if plain_text:
+                        self.log_area.insert(tk.END, plain_text, tuple(base_tags))
+                    link_text = log_entry['message'][link_start:link_end]
+                    link_tags = tuple(base_tags + [link_type])
+                    self.log_area.insert(tk.END, link_text, link_tags)
+                    last_index = link_end
+                remaining_text = log_entry['message'][last_index:]
+                if remaining_text:
+                    self.log_area.insert(tk.END, remaining_text, tuple(base_tags))
+                self.log_area.insert(tk.END, '\n')
 
-                if not links:
-                    self.log_area.insert(tk.END, log_entry['message'] + '\n', tuple(base_tags))
-                else:
-                    last_index = 0
-                    sorted_links = sorted(links, key=lambda l: l[1])
-                    for link_type, link_start, link_end in sorted_links:
-                        plain_text = log_entry['message'][last_index:link_start]
-                        if plain_text:
-                            self.log_area.insert(tk.END, plain_text, tuple(base_tags))
-                        
-                        link_text = log_entry['message'][link_start:link_end]
-                        link_tags = tuple(base_tags + [link_type])
-                        self.log_area.insert(tk.END, link_text, link_tags)
-                        
-                        last_index = link_end
-                    
-                    remaining_text = log_entry['message'][last_index:]
-                    if remaining_text:
-                        self.log_area.insert(tk.END, remaining_text, tuple(base_tags))
-                    self.log_area.insert(tk.END, '\n')
+            if scroll:
+                self.log_area.see(tk.END)
+            self.log_area.config(state='disabled')
 
-                if search_term:
-                    line_start_index = self.log_area.index(f"end-2c linestart")
-                    line_content = log_entry['message']
-                    line_num_str = line_start_index.split('.')[0]
-                    start_pos = '1.0'
-                    while True:
-                        match_start = line_content.lower().find(search_term, int(start_pos.split('.')[1]))
-                        if match_start == -1: break
-                        highlight_start = f"{line_num_str}.{match_start}"
-                        highlight_end = f"{highlight_start}+{len(search_term)}c"
-                        self.log_area.tag_add("search_highlight", highlight_start, highlight_end)
-                        start_pos = f"1.{match_start + 1}"
-
-                if scroll:
-                    self.log_area.see(tk.END)
-                self.log_area.config(state='disabled')
-
-            if to_file and self.is_running:
-                if not self.log_file or self.log_file.closed:
-                    try:
-                        self.log_file = open(self.current_log_file_path, "a", encoding="utf-8", buffering=1)
-                        self.log_file_open = True
-                    except IOError as e:
-                        self.update_status(f"Error opening log file: {e}", self.theme.LOG_LEVEL_COLORS['DELETED'])
-                        self.log_file = None
-                        return
-                if self.log_file and not self.log_file.closed:
-                    try:
-                        self.log_file.write(message + '\n')
-                        self.log_file.flush()
-                    except IOError as e:
-                        self.update_status(f"Error writing to log file: {e}", self.theme.LOG_LEVEL_COLORS['DELETED'])
+        if to_file and self.is_running:
+            if not hasattr(self, 'log_file') or not self.log_file or self.log_file.closed:
+                try:
+                    self.log_file = open(self.current_log_file_path, "a", encoding="utf-8", buffering=1)
+                    self.log_file_open = True
+                except IOError as e:
+                    self.update_status(f"Error opening log file: {e}", self.theme.LOG_LEVEL_COLORS['DELETED'])
+                    self.log_file = None
+                    return
+            if self.log_file and not self.log_file.closed:
+                try:
+                    self.log_file.write(message + '\n')
+                    self.log_file.flush()
+                except IOError as e:
+                    self.update_status(f"Error writing to log file: {e}", self.theme.LOG_LEVEL_COLORS['DELETED'])
                         
     def update_progress_display(self, message):
         self.progress_label.config(text=message)
@@ -1060,7 +1178,7 @@ class LogDisplay(tk.Frame):
             self.all_logs.insert(insert_pos, new_log)
             self._record_action('add', {'line_num': insert_pos, 'log_entry': new_log})
             self.selected_log_line_index = self.selected_log_abs_index = None
-            self.filter_logs(scroll_to_end=False)
+            self._perform_search_and_filter_logs(scroll_to_end=False)
             self.update_status("Comment added.", self.theme.LOG_LEVEL_COLORS['ADDED'])
         
         self.comment_entry.delete(1.0, tk.END)
@@ -1096,7 +1214,7 @@ class LogDisplay(tk.Frame):
                     self.redo_stack.append({'type': 'edit', 'details': {'line_num': line_num, 'original_log': current_log_state}})
                     status_message = f"Undid: Edit log at line {line_num + 1}"
                 
-                self.filter_logs(scroll_to_end=False)
+                self._perform_search_and_filter_logs(scroll_to_end=False)
                 self.update_ui_for_state()
                 if status_message: self.update_status(status_message, self.theme.LOG_LEVEL_COLORS['MODIFIED'])
                 undone = True
@@ -1128,7 +1246,7 @@ class LogDisplay(tk.Frame):
                     self.undo_stack.append({'type': 'edit', 'details': {'line_num': line_num, 'original_log': current_log_state}})
                     status_message = f"Redid: Edit log at line {line_num + 1}"
 
-                self.filter_logs(scroll_to_end=False)
+                self._perform_search_and_filter_logs(scroll_to_end=False)
                 self.update_ui_for_state()
                 if status_message: self.update_status(status_message, self.theme.LOG_LEVEL_COLORS['MODIFIED'])
                 redone = True
@@ -1185,7 +1303,7 @@ class LogDisplay(tk.Frame):
                 if not self.all_logs[line_num]['message'].strip().startswith('DELETED:'): self.all_logs[line_num]['message'] = 'DELETED: ' + original_log['message']
                 self._record_action('delete', {'line_num': line_num, 'log_entry': original_log})
                 self.update_status(f"Marked line {line_num + 1} for deletion.", self.theme.LOG_LEVEL_COLORS['DELETED'])
-                self.filter_logs(scroll_to_end=False)
+                self._perform_search_and_filter_logs(scroll_to_end=False)
                 self.selected_log_line_index = self.selected_log_abs_index = None
             else: self.update_status("No log line selected for deletion.", self.theme.LOG_LEVEL_COLORS['DELETED'])
         elif command == "/edit":
@@ -1197,7 +1315,7 @@ class LogDisplay(tk.Frame):
                 self.all_logs[line_num]['message'], self.all_logs[line_num]['state'] = new_message, 'MODIFIED'
                 self._record_action('edit', {'line_num': line_num, 'original_log': original_log})
                 self.update_status(f"Edited line {line_num + 1}.", self.theme.LOG_LEVEL_COLORS['MODIFIED'])
-                self.filter_logs(scroll_to_end=False)
+                self._perform_search_and_filter_logs(scroll_to_end=False)
                 self.selected_log_line_index = self.selected_log_abs_index = None
             else: self.update_status("No log line selected or no content provided for editing.", self.theme.LOG_LEVEL_COLORS['DELETED'])
         elif command == "/add":
@@ -1213,7 +1331,7 @@ class LogDisplay(tk.Frame):
                     self.all_logs.insert(insert_pos, new_log)
                     self._record_action('add', {'line_num': insert_pos, 'log_entry': new_log})
                     self.update_status(f"Added {log_type} log at line {insert_pos + 1}.", self.theme.LOG_LEVEL_COLORS['ADDED'])
-                    self.filter_logs(scroll_to_end=False)
+                    self._perform_search_and_filter_logs(scroll_to_end=False)
                     self.selected_log_line_index = self.selected_log_abs_index = None
                 else: self.update_status(f"Usage: /add <TYPE> [content]. Valid types: {', '.join(log_types)}", self.theme.LOG_LEVEL_COLORS['DELETED'])
             except ValueError: self.update_status("Usage: /add <TYPE> [content]. Invalid format.", self.theme.LOG_LEVEL_COLORS['DELETED'])
@@ -1365,9 +1483,9 @@ class LogDisplay(tk.Frame):
                 messages_processed = True
                 msg_text = data.get('message', '')
                 all_log_types = "|".join(re.escape(k) for k in self.theme.LOG_LEVEL_COLORS.keys())
-                log_level_pattern = rf"\[({all_log_types})\]"
+                log_level_pattern = rf"\s*(\[({all_log_types})])"
                 level_match = re.search(log_level_pattern, msg_text, re.I)
-                level = level_match.group(1).upper() if level_match else 'INFO'
+                level = level_match.group(2).upper() if level_match else 'INFO'
                 if level == 'PROGRESS':
                     self.update_progress_display(msg_text.replace('\r', '').strip())
                     self.last_progress_message = data
@@ -1394,7 +1512,7 @@ class LogDisplay(tk.Frame):
             self.log_file_open = True
         self.undo_stack.clear(); self.redo_stack.clear()
         self.update_ui_for_state()
-        self.filter_logs(scroll_to_end=False)
+        self._perform_search_and_filter_logs(scroll_to_end=False)
         self.update_status("Process finished.", self.theme.ACCENT_COLOR)
 
     def _read_think_core_output(self):
@@ -1420,7 +1538,7 @@ class LogDisplay(tk.Frame):
             if not self.is_running: return
             with open(PAUSE_FLAG_PATH, "w") as f: f.write("paused")
             self.is_paused = True
-            self.filter_logs(scroll_to_end=False)
+            self._perform_search_and_filter_logs(scroll_to_end=False)
             self.log_queue.put(('add', {'message': f"[{datetime.now().strftime('%H:%M:%S')}] [SYSTEM] Process paused.", 'level': 'SYSTEM'}))
         self.update_ui_for_state()
 
@@ -1435,51 +1553,64 @@ class LogDisplay(tk.Frame):
         except Exception as e: 
             self.update_status(f"Error opening folder: {e}", self.theme.LOG_LEVEL_COLORS['DELETED'])
 
-    def open_log_file(self):
-        log_dir = self.log_dir_var.get()
-        if not os.path.isdir(log_dir):
-            self.update_status(f"Error: Log directory not found: {log_dir}", self.theme.LOG_LEVEL_COLORS['DELETED']); return
-        file_path = filedialog.askopenfilename(initialdir=log_dir, title="Select Log File", filetypes=(("Log files", "*.log"), ("all files", "*.*")))
-        if not file_path: return
+    def _load_log_file(self, file_path: str):
+        if not file_path or not os.path.isfile(file_path):
+            self.update_status(f"Error: Log file not found at {file_path}", self.theme.LOG_LEVEL_COLORS['DELETED'])
+            return
         try:
             self.all_logs, self.undo_stack, self.redo_stack = [], [], []
             all_log_types = "|".join(re.escape(k) for k in self.theme.LOG_LEVEL_COLORS.keys())
-            log_pattern = re.compile(rf"\[({all_log_types})\]", re.I)
-            with open(file_path, "r", encoding="utf-8") as f: lines = f.readlines()
+            log_pattern = re.compile(rf"\s*(\[({all_log_types})])", re.I)
+            with open(file_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
             processed_lines = []
             for i, line in enumerate(lines):
                 is_progress = "[PROGRESS]" in line
                 if is_progress:
                     is_last_line = (i == len(lines) - 1)
-                    next_line_is_not_progress = not is_last_line and "[PROGRESS]" not in lines[i+1]
-                    if is_last_line or next_line_is_not_progress: processed_lines.append(line)
-                else: processed_lines.append(line)
+                    next_line_is_not_progress = not is_last_line and "[PROGRESS]" not in lines[i + 1]
+                    if is_last_line or next_line_is_not_progress:
+                        processed_lines.append(line)
+                else:
+                    processed_lines.append(line)
             for line in processed_lines:
                 line_stripped = line.strip()
-                if not line_stripped: continue
+                if not line_stripped:
+                    continue
                 match = log_pattern.search(line_stripped)
-                level = match.group(1).upper() if match else "INFO"
+                level = match.group(2).upper() if match else "INFO"
                 if level == 'PROGRESS':
                     level = 'INFO'
                 self.all_logs.append({'message': line_stripped, 'level': level, 'state': 'SAVED'})
             self.log_file_open, self.is_running = True, False
             self.current_log_file_path = file_path
             self.log_dir_var.set(os.path.dirname(file_path))
-            self.filter_logs(scroll_to_end=True)
+            self._perform_search_and_filter_logs(scroll_to_end=True)
+            self.update_status(f"Opened log file: {os.path.basename(file_path)}", self.theme.ACCENT_COLOR)
         except Exception as e:
             self.update_status(f"Error reading log file: {e}", self.theme.LOG_LEVEL_COLORS['DELETED'])
         finally:
             self.update_ui_for_state()
 
+    def open_log_file(self):
+        log_dir = self.log_dir_var.get()
+        if not os.path.isdir(log_dir):
+            self.update_status(f"Error: Log directory not found: {log_dir}", self.theme.LOG_LEVEL_COLORS['DELETED'])
+            return
+        file_path = filedialog.askopenfilename(initialdir=log_dir, title="Select Log File",
+                                               filetypes=(("Log files", "*.log"), ("all files", "*.*")))
+        if file_path:
+            self._load_log_file(file_path)
+
     def _increase_font_size(self):
-        self.log_font_size += 1; self.configure_tags(); self.filter_logs(scroll_to_end=False)
+        self.log_font_size += 1; self.configure_tags(); self._perform_search_and_filter_logs(scroll_to_end=False)
         self.update_status(f"Font size: {self.log_font_size}", self.theme.ACCENT_COLOR)
 
     def _decrease_font_size(self):
         if self.log_font_size > 8: 
             self.log_font_size -= 1
             self.configure_tags()
-            self.filter_logs(scroll_to_end=False)
+            self._perform_search_and_filter_logs(scroll_to_end=False)
             self.update_status(f"Font size: {self.log_font_size}", self.theme.ACCENT_COLOR)
         else: 
             self.update_status("Minimum font size reached.", self.theme.DISABLED_TEXT_COLOR)
@@ -1503,7 +1634,7 @@ class LogDisplay(tk.Frame):
             self.update_status(f"Changes saved to {os.path.basename(self.current_log_file_path)}", self.theme.LOG_LEVEL_COLORS['ADDED'])
             self.undo_stack, self.redo_stack = [], []
             self.selected_log_line_index = self.selected_log_abs_index = None
-            self.filter_logs(scroll_to_end=False)
+            self._perform_search_and_filter_logs(scroll_to_end=False)
         except Exception as e: self.update_status(f"Error saving changes: {e}", self.theme.LOG_LEVEL_COLORS['DELETED'])
         finally: self.update_ui_for_state()
 

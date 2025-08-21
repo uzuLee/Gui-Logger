@@ -1,16 +1,3 @@
-"""
-# EditorWindow 클래스를 정의합니다. 이 클래스는 로그 항목을 추가하거나 편집하기 위한 Toplevel 창입니다.
-# Defines the EditorWindow class, a Toplevel window for adding or editing log entries.
-
-# 이 모듈은 사용자가 새 로그 메시지를 작성하거나 기존 메시지를 수정할 수 있는 전용 UI를 제공합니다.
-# 'Add'와 'Edit' 두 가지 모드로 작동합니다. 이 창은 메인 LogDisplay 애플리케이션에서 실행되며,
-# 로그 데이터를 변경하기 위해 메인 앱과 상호작용합니다.
-# This module provides a dedicated UI for users to compose new log messages or
-# modify existing ones. It operates in two modes: 'Add' and 'Edit'. The window
-# is launched from the main LogDisplay application and interacts with it to
-# apply changes to the log data.
-"""
-
 import tkinter as tk
 from tkinter import Button, Label
 import re
@@ -82,13 +69,8 @@ class EditorWindow(tk.Toplevel):
 
         # 모드 전환 버튼 및 적용 버튼
         self.apply_button.update_style(bg=self.theme.SUCCESS_COLOR, hover_color=self.theme.SUCCESS_HOVER_COLOR)
-        self.switch_button.update_style(bg=self.theme.WIDGET_BG_COLOR, fg=self.theme.TEXT_COLOR, hover_color=self.theme.HOVER_COLOR)
-
-        # 모드 뱃지
-        if self.is_add_mode.get():
-            self.mode_badge_label.config(bg=self.theme.LOG_LEVEL_COLORS.get('ADDED', '#4CAF50'))
-        else:
-            self.mode_badge_label.config(bg=self.theme.LOG_LEVEL_COLORS.get('MODIFIED', '#FFC107'))
+        self.add_button.update_style(bg=self.theme.WIDGET_BG_COLOR, fg=self.theme.TEXT_COLOR, hover_color=self.theme.HOVER_COLOR)
+        self.edit_button.update_style(bg=self.theme.WIDGET_BG_COLOR, fg=self.theme.TEXT_COLOR, hover_color=self.theme.HOVER_COLOR)
 
         # 텍스트 에디터
         self.editor_text.config(
@@ -137,19 +119,17 @@ class EditorWindow(tk.Toplevel):
         self.apply_button = StyledButton(button_container, parent_frame=self.master_app, text="Apply", command=self._save_and_close, **self.theme.BUTTON_STYLE, bg=self.theme.SUCCESS_COLOR, hover_color=self.theme.SUCCESS_HOVER_COLOR)
         self.apply_button.pack(side="right")
 
-        # 모드 전환 프레임 (Mode Switch Frame)
+        # 모드 전환 프레임 (Mode Switch Frame) - ADD/EDIT 토글 버튼으로 변경
         mode_frame = tk.Frame(button_container, bg=self.theme.BG_COLOR)
         mode_frame.pack(side="right", padx=10)
 
-        self.mode_label = Label(mode_frame, text="Mode:", bg=self.theme.BG_COLOR, fg=self.theme.DISABLED_TEXT_COLOR, font=(self.theme.FONT_FAMILY_UI, 10))
-        self.mode_label.pack(side="left")
+        # ADD 버튼
+        self.add_button = StyledButton(mode_frame, parent_frame=self.master_app, text="ADD", command=self.switch_to_add_mode, bg=self.theme.WIDGET_BG_COLOR, fg=self.theme.TEXT_COLOR, hover_color=self.theme.HOVER_COLOR, font=(self.theme.FONT_FAMILY_UI, 9))
+        self.add_button.pack(side="left")
 
-        self.mode_badge_label = Label(mode_frame, text="", font=(self.theme.FONT_FAMILY_UI, 9, "bold"), fg="white", padx=5, pady=2)
-        self.mode_badge_label.pack(side="left", padx=5)
-
-        # StyledButton 사용
-        self.switch_button = StyledButton(mode_frame, parent_frame=self.master_app, text="Switch", command=self._toggle_add_edit_mode, bg=self.theme.WIDGET_BG_COLOR, fg=self.theme.TEXT_COLOR, hover_color=self.theme.HOVER_COLOR, font=(self.theme.FONT_FAMILY_UI, 9))
-        self.switch_button.pack(side="left")
+        # EDIT 버튼
+        self.edit_button = StyledButton(mode_frame, parent_frame=self.master_app, text="EDIT", command=self.switch_to_edit_mode, bg=self.theme.WIDGET_BG_COLOR, fg=self.theme.TEXT_COLOR, hover_color=self.theme.HOVER_COLOR, font=(self.theme.FONT_FAMILY_UI, 9))
+        self.edit_button.pack(side="left")
 
         # 텍스트 에디터 (Text Editor)
         self.editor_text = tk.Text(self, wrap=tk.WORD, font=(self.theme.FONT_FAMILY_LOG, self.editor_font_size.get()), bg=self.theme.LOG_AREA_BG_COLOR, fg=self.theme.TEXT_COLOR, insertbackground=self.theme.INSERT_CURSOR_COLOR, bd=0, highlightthickness=0, padx=5, pady=5, undo=True)
@@ -171,13 +151,13 @@ class EditorWindow(tk.Toplevel):
             original_log = self.master_app.all_logs[log_index]
             # 정규식을 사용하여 타임스탬프와 로그 레벨 부분을 제외한 순수 메시지만 추출합니다.
             # Use regex to extract only the pure message, excluding the timestamp and log level parts.
-            message_only = re.sub(r"^\s*\[\d{2}:\d{2}:\d{2}\]\s*\[(.*?)(?:\s*)\]\s*", '', original_log['message'])
+            message_only = re.sub(r'^\s*\[\d{2}:\d{2}:\d{2}\]\s*\[[A-Z_]+\]\s*', '', original_log['message'])
             self.editor_text.delete(1.0, tk.END)
             self.editor_text.insert(tk.END, message_only)
             self.selected_level_var.set(original_log.get('level', 'COMMENT'))
             self._set_mode(is_add=False)
-        # 'Add' 모드: 로그 인덱스가 None인 경우
-        # 'Add' mode: If log index is None
+        # 'Add' 모드: 로그 인덱스가 None이거나 유효하지 않은 경우
+        # 'Add' mode: If log index is None or invalid
         else:
             self.editor_text.delete(1.0, tk.END)
             self.selected_level_var.set('COMMENT')
@@ -185,6 +165,24 @@ class EditorWindow(tk.Toplevel):
         # undo/redo 스택을 초기화합니다.
         # Reset the undo/redo stack.
         self.editor_text.edit_reset()
+        
+    def switch_to_add_mode(self):
+        """ADD 모드로 전환하고 내용을 지웁니다."""
+        if self.is_add_mode.get():
+            return
+        self.update_content(None)
+
+    def switch_to_edit_mode(self):
+        """EDIT 모드로 전환하고 선택된 로그 내용을 불러옵니다. 선택된 로그가 없으면 실행되지 않습니다."""
+        selected_index = self.master_app.selected_log_abs_index
+        if selected_index is None:
+            self.master_app.update_status("Select a log line to switch to Edit mode.", self.theme.LOG_LEVEL_COLORS['WARNING'])
+            return
+        
+        if not self.is_add_mode.get() and self.current_log_index == selected_index:
+            return
+            
+        self.update_content(selected_index)
 
     def _set_mode(self, is_add: bool):
         """
@@ -197,26 +195,14 @@ class EditorWindow(tk.Toplevel):
         """
         self.is_add_mode.set(is_add)
         if is_add:
-            self.mode_badge_label.config(text="ADD", bg=self.theme.LOG_LEVEL_COLORS['ADDED'])
             self.title("Add New Log Entry")
+            self.add_button.update_style(bg=self.theme.LOG_LEVEL_COLORS['ADDED'], hover_color=self.theme.LOG_LEVEL_COLORS['ADDED'], fg=self.theme.BUTTON_STYLE['fg'])
+            self.edit_button.update_style(bg=self.theme.WIDGET_BG_COLOR, hover_color=self.theme.HOVER_COLOR, fg=self.theme.TEXT_COLOR)
         else:
-            self.mode_badge_label.config(text="EDIT", bg=self.theme.LOG_LEVEL_COLORS['MODIFIED'])
             self.title("Edit Log Entry")
+            self.add_button.update_style(bg=self.theme.WIDGET_BG_COLOR, hover_color=self.theme.HOVER_COLOR, fg=self.theme.TEXT_COLOR)
+            self.edit_button.update_style(bg=self.theme.LOG_LEVEL_COLORS['MODIFIED'], hover_color=self.theme.LOG_LEVEL_COLORS['MODIFIED'], fg=self.theme.BUTTON_STYLE['fg'])
         self.editor_text.focus_set()
-
-    def _toggle_add_edit_mode(self):
-        """
-        # 'Add' 모드와 'Edit' 모드 사이를 전환합니다.
-        # Toggles between 'Add' and 'Edit' modes.
-        """
-        if self.is_add_mode.get():
-            # 현재 'Add' 모드이면, 메인 앱에서 선택된 로그를 불러와 'Edit' 모드로 전환합니다.
-            # If in 'Add' mode, switch to 'Edit' mode with the log selected in the main app.
-            self.update_content(self.master_app.selected_log_abs_index)
-        else:
-            # 현재 'Edit' 모드이면, 에디터를 비워 'Add' 모드로 전환합니다.
-            # If in 'Edit' mode, switch to 'Add' mode by clearing the editor.
-            self.update_content(None)
 
     def _save_and_close(self):
         """
@@ -253,7 +239,7 @@ class EditorWindow(tk.Toplevel):
             else:
                 self.master_app.update_status("Error: Log to edit no longer exists.", self.master_app.theme.LOG_LEVEL_COLORS['DELETED'])
         
-        self.master_app.filter_logs(scroll_to_end=False)
+        self.master_app._perform_search_and_filter_logs(scroll_to_end=False)
         self.close_window()
 
     def _show_log_level_picker(self, event):
