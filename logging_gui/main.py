@@ -42,10 +42,6 @@ def main():
     # 2. Creates the main Tkinter window (`root`), with DND support if available.
     # 3. Instantiates the `LogDisplay` widget, passing default paths, and starts the GUI event loop.
     """
-    # GUI 애플리케이션 자체의 운영 메시지를 위한 로깅을 설정합니다.
-    # Configure logging for the GUI application's own operational messages.
-    setup_logging()
-    
     # DND를 지원하는 메인 애플리케이션 창(루트 위젯)을 생성합니다.
     # Create the main application window (the root widget) with DND support.
     root = DND_ROOT()
