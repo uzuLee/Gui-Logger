@@ -76,7 +76,7 @@ pip install tkinterdnd2-tk
 From the project's root directory, run the following command:
 
 ```bash
-python main.py
+python -m main
 ```
 
 ## 6\. 사용 방법 (How to Use)
