@@ -1,4 +1,3 @@
-# E:\projectFiles\programming\.gemini-cli\glen_prototype\src\utils\logging_gui\gui\utils.py
 """
 # 로깅 GUI 애플리케이션을 위한 유틸리티 함수 모음입니다.
 # Utility functions for the logging GUI application.

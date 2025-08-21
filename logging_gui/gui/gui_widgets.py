@@ -36,7 +36,6 @@ class StyledButton(tk.Button):
             self.config(highlightbackground=self.border_color)
 
     def update_style(self, **kwargs):
-        # ... (update_style 메서드 내용은 그대로 유지)
         self.bg_color = kwargs.get('bg', self.bg_color)
         self.fg_color = kwargs.get('fg', self.fg_color)
         self.hover_color = kwargs.get('hover_color', self.hover_color)

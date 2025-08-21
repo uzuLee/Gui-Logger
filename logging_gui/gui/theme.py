@@ -1,4 +1,3 @@
-# E:\projectFiles\programming\.gemini-cli\glen_prototype\src\utils\logging_gui\gui\theme.py
 """
 # 로깅 GUI의 테마 로딩 및 관리 모듈입니다.
 # Theme loading and management module for the logging GUI.

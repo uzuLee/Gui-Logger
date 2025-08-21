@@ -1,4 +1,3 @@
-# E:\projectFiles\programming\.gemini-cli\glen_prototype\src\utils\logging_gui\gui\config.py
 """
 # 로깅 GUI의 설정 모듈입니다.
 # Configuration module for the logging GUI.

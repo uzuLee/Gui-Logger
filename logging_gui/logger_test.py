@@ -1,4 +1,3 @@
-# E:\projectFiles\programming\.gemini-cli\glen_prototype\src\utils\logging_gui\logger_test.py
 """
 # ThinkCore 프로세스의 테스트 대리(Surrogate) 스크립트입니다.
 # Test Surrogate for ThinkCore Process.

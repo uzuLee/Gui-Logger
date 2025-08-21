@@ -1,5 +1,3 @@
-# E:\projectFiles\programming\.gemini-cli\glen_prototype\src\utils\logging_gui\gui\log_display.py
-
 import tkinter as tk
 from tkinter import Button, Checkbutton, Entry, Frame, BooleanVar, Label, filedialog, Canvas, Menu, messagebox
 from tkinter import ttk

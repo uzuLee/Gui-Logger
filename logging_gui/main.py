@@ -1,4 +1,3 @@
-# E:\projectFiles\programming\.gemini-cli\glen_prototype\src\utils\logging_gui\main.py
 """
 # 로그 뷰어 애플리케이션의 메인 진입점입니다.
 # Main entry point for the Log Viewer application.

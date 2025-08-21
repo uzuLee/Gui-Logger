@@ -1,4 +1,3 @@
-# E:\projectFiles\programming\.gemini-cli\glen_prototype\src\utils\logging_gui\gui\editor_window.py
 """
 # EditorWindow 클래스를 정의합니다. 이 클래스는 로그 항목을 추가하거나 편집하기 위한 Toplevel 창입니다.
 # Defines the EditorWindow class, a Toplevel window for adding or editing log entries.
