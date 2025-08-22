@@ -1,0 +1,18 @@
+{
+    "script_path": "E:/projectFiles/programming/.gemini-cli/glen_prototype/src/utils/logging_gui/test/logger_test.py",
+    "log_dir": "E:/projectFiles/programming/.gemini-cli/glen_prototype/src/utils/logging_gui/logs",
+    "theme": "dark_theme",
+    "log_filters": {
+        "TRACE": true,
+        "DEBUG": true,
+        "INFO": true,
+        "WARNING": true,
+        "ERROR": true,
+        "FATAL": true,
+        "COMMENT": true,
+        "THINKING": true,
+        "DATA": true,
+        "AUDIT": true,
+        "SYSTEM": true
+    }
+}
