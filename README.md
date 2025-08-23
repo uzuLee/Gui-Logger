@@ -1,6 +1,6 @@
 -----
 
-# Log Viewer README (1.0.0, Prototype)
+# Log Viewer README (1.3.0, Prototype)
 
 ## 1\. 개요 (Overview)
 
